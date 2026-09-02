@@ -1,10 +1,13 @@
 import Phaser from "phaser";
-import { PALETTE } from "../theme";
+import { PALETTE, DURATIONS, EASE } from "../theme";
 import { metaStore, type MergeJob } from "../../state/metaStore";
 import { TOWERS } from "../../data/towers";
 import { RARITIES } from "../../data/rarities";
 import { towerTextureKey } from "../textures";
+import { resolveArt } from "../art";
 import { makeButton } from "../ui/button";
+import { makePanel } from "../ui/panel";
+import { goToScene, fadeInScene } from "../ui/sceneTransition";
 
 export class MergeLabScene extends Phaser.Scene {
   private selected: string[] = [];
@@ -23,6 +26,7 @@ export class MergeLabScene extends Phaser.Scene {
     const { width } = this.scale;
     this.selected = [];
     this.cameras.main.setBackgroundColor(PALETTE.bgDark);
+    fadeInScene(this);
 
     this.add
       .text(width / 2, 30, "Merge Lab", { fontFamily: "Georgia, serif", fontSize: "30px", color: "#f2c14e" })
@@ -39,7 +43,7 @@ export class MergeLabScene extends Phaser.Scene {
     this.buildPreview();
     this.buildJobs();
 
-    makeButton(this, 90, 34, "Back", 120, () => this.scene.start("MainMenu"), PALETTE.bgPanelLight, 36);
+    makeButton(this, 90, 34, "Back", 120, () => goToScene(this, "MainMenu"), "green", 40);
 
     this.refreshTimer = this.time.addEvent({ delay: 1000, loop: true, callback: () => this.refreshJobs() });
     this.events.on("shutdown", () => this.refreshTimer.remove());
@@ -60,14 +64,28 @@ export class MergeLabScene extends Phaser.Scene {
       const x = startX + col * cardSize;
       const y = startY + row * cardSize;
       const c = this.add.container(x, y);
-      const bg = this.add
-        .rectangle(0, 0, 62, 62, PALETTE.bgPanel, 1)
-        .setStrokeStyle(3, RARITIES[def.rarity].color, 1);
-      bg.setInteractive({ useHandCursor: true });
-      const icon = this.add.image(0, 0, towerTextureKey(id)).setScale(0.6);
+
+      const bg = this.add.graphics();
+      const rarityColor = RARITIES[def.rarity].color;
+      const drawBg = (selected: boolean) => {
+        bg.clear();
+        bg.fillStyle(0x000000, 0.25);
+        bg.fillRoundedRect(-29, -27, 62, 62, 12);
+        bg.fillStyle(selected ? PALETTE.bgPanelLight : PALETTE.bgPanel, 1);
+        bg.fillRoundedRect(-31, -29, 62, 62, 12);
+        bg.lineStyle(selected ? 3 : 2, rarityColor, selected ? 1 : 0.75);
+        bg.strokeRoundedRect(-31, -29, 62, 62, 12);
+      };
+      drawBg(false);
+      bg.setInteractive(new Phaser.Geom.Rectangle(-31, -29, 62, 62), Phaser.Geom.Rectangle.Contains);
+
+      const art = resolveArt(this, "towers", id, towerTextureKey(id));
+      const icon = this.add.image(0, 0, art.textureKey, art.frame).setScale(art.isRealArt ? 0.5 : 0.6);
       c.add([bg, icon]);
       c.setData("towerId", id);
-      c.setData("bg", bg);
+      c.setData("draw", drawBg);
+      bg.on("pointerover", () => this.tweens.add({ targets: c, scale: 1.06, duration: DURATIONS.micro }));
+      bg.on("pointerout", () => this.tweens.add({ targets: c, scale: 1, duration: DURATIONS.micro }));
       bg.on("pointerdown", () => this.toggleSelect(id));
       this.grid.push(c);
     });
@@ -88,15 +106,14 @@ export class MergeLabScene extends Phaser.Scene {
   private refreshGrid() {
     for (const c of this.grid) {
       const id = c.getData("towerId") as string;
-      const bg = c.getData("bg") as Phaser.GameObjects.Rectangle;
-      const isSel = this.selected.includes(id);
-      bg.setFillStyle(isSel ? PALETTE.bgPanelLight : PALETTE.bgPanel, 1);
+      const draw = c.getData("draw") as (selected: boolean) => void;
+      draw(this.selected.includes(id));
     }
   }
 
   private buildPreview() {
     const { width } = this.scale;
-    this.add.rectangle(width / 2, 300, 460, 110, PALETTE.bgPanel, 1).setStrokeStyle(2, 0xffffff, 0.1);
+    makePanel(this, width / 2, 300, 460, 110, "dark");
     this.previewText = this.add
       .text(width / 2, 300, "Select two towers above.", {
         fontFamily: "sans-serif",
@@ -107,7 +124,7 @@ export class MergeLabScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.mergeBtn = makeButton(this, width / 2, 365, "Merge", 200, () => this.attemptMerge());
+    this.mergeBtn = makeButton(this, width / 2, 368, "Merge", 200, () => this.attemptMerge());
   }
 
   private refreshPreview() {
@@ -128,7 +145,12 @@ export class MergeLabScene extends Phaser.Scene {
     }
     const resultDef = TOWERS[check.recipe.result];
     const rarity = RARITIES[resultDef.rarity];
-    this.previewIcon = this.add.image(this.scale.width / 2, 270, towerTextureKey(resultDef.id)).setScale(0.7);
+    const art = resolveArt(this, "towers", resultDef.id, towerTextureKey(resultDef.id));
+    this.previewIcon = this.add
+      .image(this.scale.width / 2, 270, art.textureKey, art.frame)
+      .setScale(art.isRealArt ? 0.55 : 0.7)
+      .setAlpha(0);
+    this.tweens.add({ targets: this.previewIcon, alpha: 1, scaleY: art.isRealArt ? 0.55 : 0.7, duration: DURATIONS.small, ease: EASE.pop });
     this.previewText.setText(
       `${TOWERS[a].name} + ${TOWERS[b].name} → ${resultDef.name}\n${rarity.label} · ready in ${rarity.mergeMinutes} min · ${resultDef.description}`,
     );
@@ -149,9 +171,9 @@ export class MergeLabScene extends Phaser.Scene {
   private buildJobs() {
     const { width } = this.scale;
     this.add
-      .text(width / 2, 410, "Merging", { fontFamily: "sans-serif", fontSize: "14px", color: "#f2c14e" })
+      .text(width / 2, 412, "Merging", { fontFamily: "sans-serif", fontSize: "14px", color: "#f2c14e" })
       .setOrigin(0.5);
-    this.jobsContainer = this.add.container(0, 430);
+    this.jobsContainer = this.add.container(0, 434);
     this.refreshJobs();
   }
 
@@ -168,25 +190,49 @@ export class MergeLabScene extends Phaser.Scene {
       return;
     }
     jobs.forEach((job: MergeJob, i: number) => {
-      const y = i * 34;
+      const y = i * 40;
       const resultDef = TOWERS[job.result];
+      const rarity = RARITIES[resultDef.rarity];
       const remainingMs = Math.max(0, job.readyAt - Date.now());
       const mm = Math.floor(remainingMs / 60000);
       const ss = Math.floor((remainingMs % 60000) / 1000);
-      const label = this.add.text(
-        width / 2 - 200,
-        y,
-        `${resultDef.name} — ${mm}m ${ss}s left`,
-        { fontFamily: "sans-serif", fontSize: "13px", color: "#f5efe0" },
-      );
+      const totalMs = rarity.mergeMinutes * 60_000;
+      const progress = Phaser.Math.Clamp(1 - remainingMs / totalMs, 0, 1);
+
+      const label = this.add.text(width / 2 - 210, y - 6, `${resultDef.name}`, {
+        fontFamily: "sans-serif",
+        fontSize: "13px",
+        fontStyle: "bold",
+        color: "#f5efe0",
+      });
+      const timeLabel = this.add.text(width / 2 - 210, y + 10, `${mm}m ${ss}s left`, {
+        fontFamily: "sans-serif",
+        fontSize: "11px",
+        color: "#a9c4a4",
+      });
+
+      const barTrack = this.add.rectangle(width / 2 - 60, y + 4, 130, 8, PALETTE.bgPanel, 1).setOrigin(0, 0.5);
+      const barFill = this.add
+        .rectangle(width / 2 - 60, y + 4, Math.max(2, 130 * progress), 8, rarity.color, 1)
+        .setOrigin(0, 0.5);
+
       const cost = metaStore.skipCost(job);
-      const rushBtn = makeButton(this, width / 2 + 160, y + 8, `Rush 👑${cost}`, 130, () => {
-        if (metaStore.finishMergeNow(job.id)) {
-          this.refreshJobs();
-          this.refreshGrid();
-        }
-      }, PALETTE.bgPanelLight, 28);
-      this.jobsContainer.add([label, rushBtn]);
+      const rushBtn = makeButton(
+        this,
+        width / 2 + 160,
+        y + 4,
+        `Rush 👑${cost}`,
+        130,
+        () => {
+          if (metaStore.finishMergeNow(job.id)) {
+            this.refreshJobs();
+            this.refreshGrid();
+          }
+        },
+        "green",
+        36,
+      );
+      this.jobsContainer.add([label, timeLabel, barTrack, barFill, rushBtn]);
     });
     // unlocking may have just happened this tick — keep grid in sync
     this.syncGridWithUnlocks();

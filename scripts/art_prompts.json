@@ -1,55 +1,127 @@
 {
-  "style": "A smooth, glossy 3D-rendered mobile-game character, like a collectible vinyl toy or a Pixar-adjacent hero-shot render — NOT pixel art, NOT flat vector cel-shading, NOT a hand-painted 2D illustration. Rounded, chunky, slightly stylized proportions (a bit oversized head and hands, like a toy figurine), smooth continuous shading with soft ambient occlusion in the creases and a gentle specular highlight catching the top-left, as if lit by one soft studio key light. Clean rounded silhouette, minimal fine detail, materials read as soft fur/cloth/wood rather than plastic. Viewed from a slight 3/4 top-down hero angle. Single character/object, centered, filling most of the frame with a small margin, floating with nothing beneath it (no ground, no shadow prop, no scenery, no text, no watermark) against a single FLAT solid pure-magenta (#FF00FF) background, completely even with no gradient or vignette on it, so it can be keyed out — magenta specifically because nothing in this forest-animal-kingdom game is ever magenta. Distinct identity from any existing game: a warm woodland/autumn color grading (amber, moss, bark-brown, gold rim light) and woodland-folklore character design (forest animals with folk-crafted tools and gear) rather than a medieval-fantasy look. Friendly, family-appropriate tone — heroic and a little funny, never gory or frightening.",
+  "style": "A smooth, glossy 3D-rendered mobile-game character, like a collectible vinyl toy or a Pixar-adjacent hero-shot render \u2014 NOT pixel art, NOT flat vector cel-shading, NOT a hand-painted 2D illustration. Rounded, chunky, slightly stylized proportions (a bit oversized head and hands, like a toy figurine), smooth continuous shading with soft ambient occlusion in the creases and a gentle specular highlight catching the top-left, as if lit by one soft studio key light. Clean rounded silhouette, minimal fine detail, materials read as soft fur/cloth/wood rather than plastic. Viewed from a slight 3/4 top-down hero angle. Single character/object, centered, filling most of the frame with a small margin, floating with nothing beneath it (no ground, no shadow prop, no scenery, no text, no watermark) against a single FLAT solid pure-magenta (#FF00FF) background, completely even with no gradient or vignette on it, so it can be keyed out \u2014 magenta specifically because nothing in this forest-animal-kingdom game is ever magenta. Distinct identity from any existing game: a warm woodland/autumn color grading (amber, moss, bark-brown, gold rim light) and woodland-folklore character design (forest animals with folk-crafted tools and gear) rather than a medieval-fantasy look. Friendly, family-appropriate tone \u2014 heroic and a little funny, never gory or frightening.",
   "entities": {
     "towers:squirrel_scout": {
       "kind": "towers",
-      "canvas": [84, 84],
+      "canvas": [
+        84,
+        84
+      ],
       "prompt": "A small, spry red squirrel standing upright on its hind legs, holding a wooden slingshot loaded with an acorn, alert and ready to fire. Big bushy tail curled up behind it. Common-rarity starter tower, keep the design simple."
     },
     "towers:turtle_guard": {
       "kind": "towers",
-      "canvas": [84, 84],
-      "prompt": "A sturdy forest turtle with a thick mossy-green domed shell, front legs braced defensively, calm and determined expression — a defensive blocker unit, not attacking."
+      "canvas": [
+        84,
+        84
+      ],
+      "prompt": "A sturdy forest turtle with a thick mossy-green domed shell, front legs braced defensively, calm and determined expression \u2014 a defensive blocker unit, not attacking."
     },
     "towers:beaver_engineer": {
       "kind": "towers",
-      "canvas": [84, 84],
+      "canvas": [
+        84,
+        84
+      ],
       "prompt": "A beaver wearing a small tool-belt, gripping a wooden mallet, standing next to a miniature log-and-mud dam it just finished building, industrious cheerful expression."
     },
     "towers:bear_brawler": {
       "kind": "towers",
-      "canvas": [84, 84],
+      "canvas": [
+        84,
+        84
+      ],
       "prompt": "A broad-shouldered brown bear standing on its hind legs, gripping a thick fallen tree branch like a club in both paws, mid-swing battle stance, fierce but heroic (never scary) expression."
     },
     "towers:bear_squirrel_duo": {
       "kind": "towers",
-      "canvas": [84, 84],
-      "prompt": "The same broad-shouldered brown bear standing on hind legs gripping a tree-branch club, but now with two small red squirrels riding on his shoulders, each holding an acorn ready to throw — a fun team-up pose, rare-rarity fused tower, slightly more detailed/impressive than the base bear."
+      "canvas": [
+        84,
+        84
+      ],
+      "prompt": "The same broad-shouldered brown bear standing on hind legs gripping a tree-branch club, but now with two small red squirrels riding on his shoulders, each holding an acorn ready to throw \u2014 a fun team-up pose, rare-rarity fused tower, slightly more detailed/impressive than the base bear."
     },
     "enemies:poacher_scout": {
       "kind": "enemies",
-      "canvas": [56, 56],
-      "prompt": "A sneaky cartoon-villain poacher character, lean build, camo-patterned jacket, holding a small net, crouched in a quick sneaking pose. Readable enemy silhouette, cartoonish and non-graphic — no weapons pointed at anything, no violence."
+      "canvas": [
+        56,
+        56
+      ],
+      "prompt": "A sneaky cartoon-villain poacher character, lean build, camo-patterned jacket, holding a small net, crouched in a quick sneaking pose. Readable enemy silhouette, cartoonish and non-graphic \u2014 no weapons pointed at anything, no violence."
     },
     "enemies:logger_grunt": {
       "kind": "enemies",
-      "canvas": [56, 56],
+      "canvas": [
+        56,
+        56
+      ],
       "prompt": "A stocky cartoon-villain logger character in a red plaid work shirt and a hard hat, carrying a comically oversized (but not gory) chainsaw resting on one shoulder, heavy confident stance."
     },
     "enemies:trap_setter": {
       "kind": "enemies",
-      "canvas": [56, 56],
+      "canvas": [
+        56,
+        56
+      ],
       "prompt": "A wiry cartoon-villain character in a green jacket and gloves, crouched low, holding an empty animal snare/trap in both hands, nimble sneaky posture."
     },
     "enemies:timber_reaper": {
       "kind": "enemies",
-      "canvas": [140, 140],
+      "canvas": [
+        140,
+        140
+      ],
       "prompt": "A large intimidating mini-boss: a rusty orange-and-black mechanical feller-buncher forestry vehicle with a big circular saw-blade arm raised, thick smokestack, cartoon boss-fight machine design (think a friendly-game-boss version of a logging machine, stylized and chunky, not photorealistic or gory)."
     },
     "projectiles:acorn": {
       "kind": "projectiles",
-      "canvas": [16, 16],
+      "canvas": [
+        16,
+        16
+      ],
       "prompt": "A single glossy brown acorn with its cap, simple bold icon-style game projectile, extremely minimal detail since it renders very small."
+    },
+    "environment:ground_forest": {
+      "kind": "environment",
+      "canvas": [
+        960,
+        540
+      ],
+      "mode": "background",
+      "style_override": "A smooth, glossy 3D-rendered top-down forest floor for a mobile tower-defense game \u2014 the same collectible-toy material and warm woodland/autumn color grading as the game's characters (soft ambient occlusion in the cracks, gentle rounded highlights, never a flat hand-painted 2D texture look). Shot straight down from directly overhead, like a drone photo of the ground, filling 100% of the rectangular frame edge-to-edge with terrain \u2014 the image IS the ground itself, not an object sitting on a surface. Absolutely no circular shape, no dish, no plate, no lens, no vignette, no frame, no border, no visible edge or boundary of any kind anywhere in the image \u2014 every single pixel corner to corner is ground texture. No path or trail, no characters, no towers, no water, no large rocks, no trees, no text.",
+      "prompt": "Lush temperate forest floor: mossy grass in several shades of green, a few patches of rich brown dirt, tiny scattered leaves and twigs for texture. Even lighting across the whole frame."
+    },
+    "environment:rock": {
+      "kind": "environment",
+      "canvas": [
+        48,
+        48
+      ],
+      "prompt": "A single smooth rounded boulder/rock, mossy on top, for scattering around a forest map as scenery. Small simple prop, not a character."
+    },
+    "environment:bush": {
+      "kind": "environment",
+      "canvas": [
+        48,
+        48
+      ],
+      "prompt": "A single rounded forest bush with a few small red berries, for scattering around a forest map as scenery. Small simple prop, not a character."
+    },
+    "environment:stump": {
+      "kind": "environment",
+      "canvas": [
+        44,
+        44
+      ],
+      "prompt": "A single sawn-off tree stump with visible growth rings on top, for scattering around a forest map as scenery. Small simple prop, not a character."
+    },
+    "environment:flowers": {
+      "kind": "environment",
+      "canvas": [
+        36,
+        36
+      ],
+      "prompt": "A small cluster of three simple woodland wildflowers (amber and gold petals) growing from a tiny patch of grass, for scattering around a forest map as scenery. Small simple prop, not a character."
     }
   }
 }

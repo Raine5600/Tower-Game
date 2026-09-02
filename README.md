@@ -40,20 +40,26 @@ scripts/
 public/
   art/<kind>/<id>/            real art drop-in point — see ART_PIPELINE.md
 src/
-  data/            Pure data: towers, enemies, rarities, merge recipes, level/wave defs
+  data/            Pure data: towers, enemies, rarities, merge recipes, level/wave defs, environment prop ids
   state/
     metaStore.ts   Persistent meta-progression (crowns, unlocked roster, deck, merge jobs)
   game/
-    theme.ts             Shared palette + world size
-    textures.ts           Procedural placeholder art baked to Phaser textures at boot
+    theme.ts             Shared palette, spacing/radius tokens, and animation timing/easing (DURATIONS/EASE)
+    textures.ts           Procedural placeholder character art baked to Phaser textures at boot
+    envTextures.ts         Procedural placeholder ground + prop art (rock/bush/stump/flowers)
     assetManifest.ts       Real-art path conventions (kind/id → expected file paths)
     realArtRegistry.ts     Fetches public/art/manifest.json once at boot, before Phaser.Game exists
     art.ts                 Resolves real atlas anim > real static image > procedural, per entity
     entities/        Tower, Enemy, Projectile — the live game objects
     systems/         ObjectPool (perf: reuse projectiles instead of GC churn)
-    ui/              Reusable button + floating-text helpers
+    ui/
+      uiTextures.ts        The one glossy nine-slice "material" every panel/button/badge is baked from
+      panel.ts, button.ts  Reusable panel and button components built on uiTextures
+      currencyBadge.ts     Icon-in-a-badge + animated count-up, used for Crowns/Acorns everywhere
+      sceneTransition.ts   goToScene()/fadeInScene() — every scene change fades instead of hard-cutting
+      floatingText.ts      Damage/currency popups
     scenes/
-      BootScene         queues confirmed real art, generates placeholders, then hands off
+      BootScene         queues confirmed real art, generates all placeholders (character/UI/environment), hands off
       MainMenuScene      title + crowns balance
       DeckSelectScene    pick up to 8 unlocked towers before a run
       LevelScene         the actual tower-defense gameplay
@@ -61,23 +67,29 @@ src/
       ResultScene        win/lose, stars, crowns earned
 ```
 
-## Placeholder art, and how to replace it
+## Art: real for the Forest roster + map, placeholder for the rest
 
-There is no illustrated art yet. Every tower and enemy is a Graphics shape
-baked to a texture at boot (`src/game/textures.ts`) — silhouettes are
-role-coded (triangle = ranged, hexagon = blocker, ripple = support, burst =
-splash/hybrid) so the game stays readable without real sprites.
+The full Forest starter roster (4 towers, the merged Duo, 4 enemies, the
+acorn projectile) plus the map itself (ground texture and 4 decorative
+props) now render real art, generated with Gemini 2.5 Flash Image and
+post-processed into game-ready sprites — see `scripts/gen_art.py`. Anything
+outside that set (future biomes' towers/enemies) still falls back to a
+Graphics shape baked to a texture at boot (`src/game/textures.ts` /
+`envTextures.ts`) — silhouettes are role-coded (triangle = ranged, hexagon =
+blocker, ripple = support, burst = splash/hybrid) so the game stays readable
+even where real art doesn't exist yet.
 
-The real-art pipeline is already built and wired in, waiting for files: drop
-a PNG (or an animated TexturePacker atlas) at a conventional path under
-`public/art/` and it replaces the placeholder automatically, no code changes
-— **see [`ART_PIPELINE.md`](./ART_PIPELINE.md) for the exact paths, sizes,
-and animation-frame naming convention.** `src/game/art.ts` +
-`realArtRegistry.ts` do the resolving (real atlas animation > real static
-image > procedural placeholder); `scripts/generate-art-manifest.mjs` is what
-lets the game know what's real without speculatively requesting files that
-might not exist (important on static hosts that SPA-fallback missing paths
-to `index.html`, which used to crash the loader — see the pipeline doc).
+The real-art pipeline is fully wired in: drop a PNG (or an animated
+TexturePacker atlas) at a conventional path under `public/art/` and it
+replaces the placeholder automatically, no code changes — **see
+[`ART_PIPELINE.md`](./ART_PIPELINE.md) for the exact paths, sizes, animation-
+frame naming convention, and how to run the Gemini generator yourself.**
+`src/game/art.ts` + `realArtRegistry.ts` do the resolving (real atlas
+animation > real static image > procedural placeholder); `scripts/generate-
+art-manifest.mjs` is what lets the game know what's real without
+speculatively requesting files that might not exist (important on static
+hosts that SPA-fallback missing paths to `index.html`, which used to crash
+the loader — see the pipeline doc).
 
 ## What's actually implemented
 
@@ -88,6 +100,24 @@ to `index.html`, which used to crash the loader — see the pipeline doc).
 - Four towers covering the four core TD roles (ranged / blocker / support /
   splash), each data-driven (`src/data/towers.ts`) rather than hardcoded —
   adding a fifth tower is a data entry, not new code.
+- Every tower also has a **signature ability** beyond its role template, so
+  two ranged towers don't just feel like the same tower with different
+  numbers (see `LevelScene.applyMeleeSpecial`/`applyRangedSpecial`/
+  `fireSupportPulse`): Squirrel Scout's every-4th-shot Quick Volley, Turtle
+  Guard's every-5th-hit Shell Slam (a full root, not just a slow), Beaver
+  Engineer's every-5th-pulse Flood Burst (real damage + a strong slow instead
+  of its usual gentle one), Bear Brawler's Rampage stacks (4 hits build to a
+  bonus-damage knockback+stun), and the Duo's Double Team (every 3rd shot
+  also tags a second nearby enemy).
+- A shared UI kit (`src/game/ui/`) — one glossy nine-slice panel/button
+  "material," one set of animation timings/eases (`theme.ts`'s
+  `DURATIONS`/`EASE`) — used on every screen instead of ad hoc rectangles, so
+  the game reads as one designed system. Every scene change fades instead of
+  hard-cutting (`ui/sceneTransition.ts`).
+- A real (Gemini-generated) forest-floor ground texture and scattered
+  decorative props in Forest 1-1, replacing the flat-color-plus-stripes
+  ground and bare rectangle placement zones from the first pass; zones are
+  now soft glowing rounded tiles.
 - The **merge mechanic**: Squirrel Scout + Bear Brawler → Bear & Squirrel
   Duo, cheaper than the sum of its parts, with its own stats. Discovering an
   unlisted pair says so rather than pretending nothing exists — the door is

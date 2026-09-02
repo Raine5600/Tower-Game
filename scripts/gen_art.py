@@ -167,19 +167,37 @@ def trim_and_fit(img: Image.Image, canvas: tuple[int, int]) -> Image.Image:
     return canvas_img
 
 
+def cover_fit(img: Image.Image, canvas: tuple[int, int]) -> Image.Image:
+    """Resize+center-crop (never distort) to exactly fill the canvas — for full
+    background scenes, where there's no transparency and nothing to trim."""
+    target_w, target_h = canvas
+    scale = max(target_w / img.width, target_h / img.height)
+    new_size = (max(1, int(img.width * scale)), max(1, int(img.height * scale)))
+    img = img.resize(new_size, Image.LANCZOS)
+    left = (img.width - target_w) // 2
+    top = (img.height - target_h) // 2
+    return img.crop((left, top, left + target_w, top + target_h)).convert("RGB")
+
+
 def generate_one(api_key: str, key: str, entry: dict) -> None:
     kind = entry["kind"]
     entity_id = key.split(":", 1)[1]
     canvas = tuple(entry["canvas"])
-    style = load_prompts()["style"]
+    mode = entry.get("mode", "sprite")
+    style = entry.get("style_override") or load_prompts()["style"]
     full_prompt = f"{style}\n\nSubject: {entry['prompt']}"
 
     print(f"  requesting…")
     raw = call_gemini(api_key, full_prompt)
     img = Image.open(BytesIO(raw))
-    print(f"  got {img.size[0]}x{img.size[1]} {img.mode} — removing background…")
-    img = remove_background(img)
-    img = trim_and_fit(img, canvas)
+
+    if mode == "background":
+        print(f"  got {img.size[0]}x{img.size[1]} {img.mode} — cover-fitting to {canvas[0]}x{canvas[1]}…")
+        img = cover_fit(img, canvas)
+    else:
+        print(f"  got {img.size[0]}x{img.size[1]} {img.mode} — removing background…")
+        img = remove_background(img)
+        img = trim_and_fit(img, canvas)
 
     out_dir = ART_DIR / kind / entity_id
     out_dir.mkdir(parents=True, exist_ok=True)

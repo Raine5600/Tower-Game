@@ -119,23 +119,39 @@ echo 'GEMINI_API_KEY=...' >> .env.local          # persisted, already gitignored
 python3 scripts/gen_art.py --list                          # see valid entity keys
 python3 scripts/gen_art.py towers:squirrel_scout            # generate one
 python3 scripts/gen_art.py towers:squirrel_scout enemies:poacher_scout
-python3 scripts/gen_art.py --all                            # the whole current roster
+python3 scripts/gen_art.py --all                            # everything in art_prompts.json
 ```
 
-It prompts the model with a shared style guide (`scripts/art_prompts.json`)
-plus a per-entity description, on a flat green background, then:
-1. Chroma-keys the green out with a soft feather (not a hard cutout — fur/hair
-   edges hold up much better than a naive threshold).
-2. Trims to the actual content and contain-fits it centered onto a
-   transparent canvas matching the size table above.
-3. Saves to `public/art/<kind>/<id>/static.png` and regenerates the manifest.
+Every entity is an entry in `scripts/art_prompts.json`: a `kind`, a `canvas`
+size, a `prompt`, and an optional `mode` (defaults to `"sprite"`):
 
-**Review before trusting it.** Chroma-keying an AI-generated image is not
-perfect — a stray green fringe on light-colored fur, or a background element
-the model didn't fully clear, both happen occasionally. Open each generated
-PNG and check it looks right before considering it final; regenerate (prompt
-variance means a second run often just fixes it) or touch up in any image
-editor if not.
+- **`"sprite"`** (towers, enemies, projectiles, decorative props) — prompted
+  against a flat magenta (`#FF00FF`) background using the shared `style` text
+  at the top of the file, chosen because nothing in this game is ever
+  magenta. `remove_background()` then samples the image's own border for the
+  actual color the model used (it drifts from the exact hex — shading, a
+  slightly different magenta), keys the whole frame on that color with a soft
+  distance-transform feather (not a hard cutout — holds up much better at the
+  small sizes these render at in-game), and `trim_and_fit()` centers the
+  result onto a transparent canvas at the target size.
+- **`"background"`** (currently just `environment:ground_forest`) — no
+  magenta, no transparency; the prompt asks for a full opaque scene shot
+  straight down, and `cover_fit()` resizes+center-crops (never stretches) to
+  exactly fill the target canvas. Give a `"style_override"` alongside it if
+  the shared character `style` text doesn't fit (it explicitly asks for
+  "floating, no background," the opposite of what a ground image needs).
+
+Every run ends by saving to `public/art/<kind>/<id>/static.png` and
+regenerating the manifest.
+
+**Review before trusting it.** Neither background removal nor the model's
+prompt-following is perfect — a stray magenta fringe, a background element
+that leaked through, or (seen once) the model wrapping a full-bleed ground
+shot in an unwanted circular vignette/dish shape are all things that have
+actually happened while building this roster. Open each generated PNG and
+check it looks right before considering it final; regenerate (prompt
+variance often just fixes it — that's how the ground shot above got fixed)
+or touch up in any image editor if not.
 
 **This only generates Tier 1 (static images), not Tier 2 (animated atlases).**
 Getting a general-purpose image model to output multiple frames of the same

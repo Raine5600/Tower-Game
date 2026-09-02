@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(fileURLToPath(import.meta.url), "..", "..");
 const artDir = join(root, "public", "art");
-const kinds = ["towers", "enemies", "projectiles"];
+const kinds = ["towers", "enemies", "projectiles", "environment"];
 
 const manifest = {};
 let staticCount = 0;

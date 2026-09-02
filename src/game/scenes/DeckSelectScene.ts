@@ -1,10 +1,14 @@
 import Phaser from "phaser";
-import { PALETTE } from "../theme";
+import { PALETTE, DURATIONS, EASE } from "../theme";
 import { metaStore } from "../../state/metaStore";
 import { TOWERS } from "../../data/towers";
 import { RARITIES } from "../../data/rarities";
 import { towerTextureKey } from "../textures";
+import { resolveArt } from "../art";
 import { makeButton } from "../ui/button";
+import { makePanel } from "../ui/panel";
+import { panelTextureKey } from "../ui/uiTextures";
+import { goToScene, fadeInScene } from "../ui/sceneTransition";
 
 interface DeckSelectData {
   levelId: string;
@@ -27,6 +31,7 @@ export class DeckSelectScene extends Phaser.Scene {
   create() {
     const { width } = this.scale;
     this.cameras.main.setBackgroundColor(PALETTE.bgDark);
+    fadeInScene(this);
     this.cards = [];
 
     this.add
@@ -45,7 +50,7 @@ export class DeckSelectScene extends Phaser.Scene {
     const cardW = 190;
     const cardH = 150;
     const startX = width / 2 - ((cols - 1) * cardW) / 2;
-    const startY = 150;
+    const startY = 155;
 
     unlocked.forEach((id, i) => {
       const def = TOWERS[id];
@@ -53,7 +58,17 @@ export class DeckSelectScene extends Phaser.Scene {
       const row = Math.floor(i / cols);
       const x = startX + col * cardW;
       const y = startY + row * cardH;
-      this.cards.push(this.buildCard(x, y, id, def.name, def.rarity, def.description));
+      const card = this.buildCard(x, y, id, def.name, def.rarity, def.description);
+      card.setScale(0.85).setAlpha(0);
+      this.tweens.add({
+        targets: card,
+        scale: 1,
+        alpha: 1,
+        delay: i * 45,
+        duration: DURATIONS.medium,
+        ease: EASE.pop,
+      });
+      this.cards.push(card);
     });
 
     this.deckLabel = this.add
@@ -62,10 +77,10 @@ export class DeckSelectScene extends Phaser.Scene {
 
     this.startBtn = makeButton(this, width / 2, 505, "Start Level", 220, () => {
       if (metaStore.data.deck.length === 0) return;
-      this.scene.start("Level", { levelId: this.levelId, deck: [...metaStore.data.deck] });
+      goToScene(this, "Level", { levelId: this.levelId, deck: [...metaStore.data.deck] });
     });
 
-    makeButton(this, 90, 34, "Back", 120, () => this.scene.start("MainMenu"), PALETTE.bgPanelLight, 36);
+    makeButton(this, 90, 34, "Back", 120, () => goToScene(this, "MainMenu"), "green", 36);
 
     this.refresh();
   }
@@ -73,47 +88,68 @@ export class DeckSelectScene extends Phaser.Scene {
   private buildCard(x: number, y: number, id: string, name: string, rarity: keyof typeof RARITIES, desc: string) {
     const c = this.add.container(x, y);
     const rarityDef = RARITIES[rarity];
-    const bg = this.add.rectangle(0, 0, 176, 138, PALETTE.bgPanel, 1).setStrokeStyle(3, rarityDef.color, 1);
-    bg.setInteractive({ useHandCursor: true });
-    const icon = this.add.image(0, -34, towerTextureKey(id)).setScale(0.75);
+
+    const frame = this.add.graphics();
+    frame.lineStyle(3, rarityDef.color, 0.9);
+    frame.strokeRoundedRect(-90, -71, 180, 142, 18);
+
+    const panel = makePanel(this, 0, 0, 176, 138, "dark");
+    panel.setInteractive({ useHandCursor: true });
+
+    const art = resolveArt(this, "towers", id, towerTextureKey(id));
+    const icon = this.add.image(0, -34, art.textureKey, art.frame).setScale(art.isRealArt ? 0.62 : 0.75);
     const nameTxt = this.add
-      .text(0, 10, name, { fontFamily: "sans-serif", fontSize: "13px", color: "#f5efe0", fontStyle: "bold" })
+      .text(0, 12, name, { fontFamily: "sans-serif", fontSize: "13px", color: "#f5efe0", fontStyle: "bold" })
       .setOrigin(0.5);
     const rarityTxt = this.add
-      .text(0, 28, rarityDef.label, { fontFamily: "sans-serif", fontSize: "11px", color: rarityDef.colorCss })
+      .text(0, 30, rarityDef.label, { fontFamily: "sans-serif", fontSize: "11px", color: rarityDef.colorCss })
       .setOrigin(0.5);
     const descTxt = this.add
       .text(0, 50, desc, {
         fontFamily: "sans-serif",
         fontSize: "9px",
         color: "#a9c4a4",
-        wordWrap: { width: 160 },
+        wordWrap: { width: 158 },
         align: "center",
       })
       .setOrigin(0.5, 0);
-    c.add([bg, icon, nameTxt, rarityTxt, descTxt]);
 
-    bg.on("pointerdown", () => {
+    const check = this.add
+      .text(74, -58, "✓", { fontFamily: "sans-serif", fontSize: "16px", fontStyle: "bold", color: "#1a1a1a" })
+      .setOrigin(0.5)
+      .setBackgroundColor(rarityDef.colorCss)
+      .setPadding(5, 3, 5, 3)
+      .setVisible(false);
+
+    c.add([frame, panel, icon, nameTxt, rarityTxt, descTxt, check]);
+
+    panel.on("pointerover", () => this.tweens.add({ targets: c, scale: 1.03, duration: DURATIONS.micro }));
+    panel.on("pointerout", () => this.tweens.add({ targets: c, scale: 1, duration: DURATIONS.micro }));
+    panel.on("pointerdown", () => {
       const ok = metaStore.toggleDeck(id);
       if (!ok) {
         this.cameras.main.shake(120, 0.003);
         return;
       }
+      this.tweens.add({ targets: c, scale: { from: 0.94, to: 1 }, duration: DURATIONS.small, ease: EASE.pop });
       this.refresh();
     });
 
     c.setData("towerId", id);
-    c.setData("bg", bg);
+    c.setData("panel", panel);
+    c.setData("check", check);
     return c;
   }
 
   private refresh() {
     for (const c of this.cards) {
       const id = c.getData("towerId") as string;
-      const bg = c.getData("bg") as Phaser.GameObjects.Rectangle;
+      const panel = c.getData("panel") as Phaser.GameObjects.NineSlice;
+      const check = c.getData("check") as Phaser.GameObjects.Text;
       const inDeck = metaStore.data.deck.includes(id);
-      bg.setFillStyle(inDeck ? PALETTE.bgPanelLight : PALETTE.bgPanel, 1);
-      c.setAlpha(inDeck ? 1 : 0.75);
+      panel.setTexture(panelTextureKey(inDeck ? "light" : "dark"));
+      check.setVisible(inDeck);
+      c.setAlpha(inDeck ? 1 : 0.82);
     }
     this.deckLabel.setText(`Deck: ${metaStore.data.deck.length} / ${metaStore.maxDeckSize}`);
     this.startBtn.setAlpha(metaStore.data.deck.length > 0 ? 1 : 0.4);

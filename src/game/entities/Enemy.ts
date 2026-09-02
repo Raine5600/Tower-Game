@@ -40,6 +40,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.path = path;
     this.segmentIndex = 0;
     this.slowUntil = 0;
+    this.slowFactor = 0;
     this.stunUntil = 0;
     this.alive = true;
 
@@ -68,12 +69,39 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
   applySlow(factor: number, durationMs: number) {
     const now = this.scene.time.now;
-    this.slowFactor = Math.max(this.slowFactor, factor);
-    this.slowUntil = Math.max(this.slowUntil, now + durationMs);
+    // A slow that already expired shouldn't be max'd against — that would let
+    // a strong-but-stale factor (e.g. a full root from a previous slow that
+    // wore off) silently reapply itself the next time *any* weaker slow
+    // lands. Only actively-overlapping slows should stack via max().
+    const stillActive = now < this.slowUntil;
+    this.slowFactor = stillActive ? Math.max(this.slowFactor, factor) : factor;
+    this.slowUntil = Math.max(stillActive ? this.slowUntil : 0, now + durationMs);
   }
 
   applyStun(durationMs: number) {
     this.stunUntil = Math.max(this.stunUntil, this.scene.time.now + durationMs);
+  }
+
+  /** Shove the enemy backward along the path it's already walked — Bear
+   * Brawler's signature. Walks back segment-by-segment so it's safe even when
+   * the push is bigger than the distance already covered in the current leg. */
+  pushBack(distance: number) {
+    let remaining = distance;
+    while (remaining > 0) {
+      const a = this.path[this.segmentIndex];
+      const traveledInSeg = Phaser.Math.Distance.Between(a.x, a.y, this.x, this.y);
+      if (remaining < traveledInSeg) {
+        const b = this.path[this.segmentIndex + 1] ?? a;
+        const segLen = Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y) || 1;
+        const t = (traveledInSeg - remaining) / segLen;
+        this.setPosition(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+        return;
+      }
+      remaining -= traveledInSeg;
+      this.setPosition(a.x, a.y);
+      if (this.segmentIndex === 0) return; // can't push past the spawn point
+      this.segmentIndex--;
+    }
   }
 
   /** Advance along the path. Returns true if it reached the end this frame. */

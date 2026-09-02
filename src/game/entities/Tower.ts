@@ -20,6 +20,14 @@ export class Tower extends Phaser.GameObjects.Container {
   private art: ResolvedArt;
   onFire: TowerFireCallback | null = null;
 
+  // Per-tower signature-ability state — see LevelScene.applySpecial() for what
+  // reads these. Generic on purpose so each tower's special can use whichever
+  // fits (a shot counter, a stack meter, a cooldown timer) without needing a
+  // bespoke class per tower.
+  shotsFired = 0;
+  abilityStacks = 0;
+  nextSpecialAt = 0;
+
   constructor(scene: Phaser.Scene, x: number, y: number, def: TowerDef) {
     super(scene, x, y);
     this.def = def;
@@ -86,5 +94,17 @@ export class Tower extends Phaser.GameObjects.Container {
 
   distanceTo(enemy: Enemy) {
     return Phaser.Math.Distance.Between(this.x, this.y, enemy.x, enemy.y);
+  }
+
+  /** Brief color flash on the sprite — used by ability visuals (rage build-up,
+   * shell-hardening) so a special reads as *this tower* doing something, not
+   * just a ring appearing on the ground. */
+  flashTint(color: number, ms: number) {
+    this.sprite.setTint(color);
+    this.scene.time.delayedCall(ms, () => this.sprite.clearTint());
+  }
+
+  pulseScale(amount: number, ms: number) {
+    this.scene.tweens.add({ targets: this.sprite, scale: { from: 1 + amount, to: 1 }, duration: ms, ease: "Quad.Out" });
   }
 }

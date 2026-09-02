@@ -3,15 +3,18 @@ import { artPaths, type ArtKind } from "./assetManifest";
 import { realArtRegistry } from "./realArtRegistry";
 import { TOWERS } from "../data/towers";
 import { ENEMIES } from "../data/enemies";
+import { ENV_PROPS, GROUND_ID } from "../data/environment";
 
 const PROJECTILE_ID = "acorn";
 
 /** Every (kind, id) pair the game knows how to look up real art for. */
-function allEntries(): { kind: ArtKind; id: string }[] {
+export function allEntries(): { kind: ArtKind; id: string }[] {
   return [
     ...Object.keys(TOWERS).map((id) => ({ kind: "towers" as ArtKind, id })),
     ...Object.keys(ENEMIES).map((id) => ({ kind: "enemies" as ArtKind, id })),
     { kind: "projectiles" as ArtKind, id: PROJECTILE_ID },
+    { kind: "environment" as ArtKind, id: GROUND_ID },
+    ...ENV_PROPS.map((id) => ({ kind: "environment" as ArtKind, id })),
   ];
 }
 

@@ -1,16 +1,23 @@
 import Phaser from "phaser";
-import { PALETTE } from "../theme";
+import { PALETTE, DURATIONS, EASE } from "../theme";
 import { FOREST_LEVEL_1, type LevelDef, type WaveSpawn } from "../../data/levels/forest01";
 import { ENEMIES, type EnemyKind } from "../../data/enemies";
 import { TOWERS } from "../../data/towers";
 import { RARITIES } from "../../data/rarities";
+import { GROUND_ID } from "../../data/environment";
 import { Enemy } from "../entities/Enemy";
 import { Projectile } from "../entities/Projectile";
 import { Tower } from "../entities/Tower";
 import { ObjectPool } from "../systems/ObjectPool";
 import { towerTextureKey, rangeRingTextureKey } from "../textures";
+import { proceduralGroundKey, proceduralPropKey } from "../envTextures";
+import { resolveArt } from "../art";
 import { popText } from "../ui/floatingText";
 import { makeButton } from "../ui/button";
+import { makePanel } from "../ui/panel";
+import { makeCurrencyBadge, type CurrencyBadge } from "../ui/currencyBadge";
+import { goToScene, fadeInScene } from "../ui/sceneTransition";
+import { zoneTileTextureKey, ZONE_TILE_INSET } from "../ui/uiTextures";
 import { metaStore } from "../../state/metaStore";
 
 interface LevelSceneData {
@@ -21,6 +28,17 @@ interface LevelSceneData {
 const LEVELS: Record<string, LevelDef> = {
   "forest-1-1": FOREST_LEVEL_1,
 };
+
+// Hand-placed decorative props — kept out of the path corridor and placement
+// zones so they never sit under something interactive. Purely cosmetic.
+const FOREST_PROPS: { id: "rock" | "bush" | "stump" | "flowers"; x: number; y: number; scale?: number }[] = [
+  { id: "rock", x: 110, y: 290 },
+  { id: "bush", x: 330, y: 150 },
+  { id: "bush", x: 462, y: 205, scale: 0.85 },
+  { id: "flowers", x: 400, y: 445 },
+  { id: "stump", x: 650, y: 55 },
+  { id: "flowers", x: 662, y: 358 },
+];
 
 export class LevelScene extends Phaser.Scene {
   private level!: LevelDef;
@@ -43,10 +61,11 @@ export class LevelScene extends Phaser.Scene {
   private selectedTowerId: string | null = null;
   private ghost: Phaser.GameObjects.Container | null = null;
 
-  private livesLabel!: Phaser.GameObjects.Text;
-  private currencyLabel!: Phaser.GameObjects.Text;
+  private livesBadge!: CurrencyBadge;
+  private currencyBadge!: CurrencyBadge;
   private waveLabel!: Phaser.GameObjects.Text;
   private tray!: Phaser.GameObjects.Container;
+  private zoneTiles: Phaser.GameObjects.NineSlice[] = [];
 
   constructor() {
     super("Level");
@@ -70,12 +89,14 @@ export class LevelScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor(PALETTE.bgDark);
+    fadeInScene(this);
 
     this.enemyPool = new ObjectPool<Enemy>(() => new Enemy(this), () => undefined, 24);
     this.projectilePool = new ObjectPool<Projectile>(() => new Projectile(this), () => undefined, 16);
 
     this.drawGround();
     this.drawPath();
+    this.drawProps();
     this.drawZones();
     this.buildHud();
     this.buildTray();
@@ -91,38 +112,75 @@ export class LevelScene extends Phaser.Scene {
 
   private drawGround() {
     const { width, height } = this.scale;
-    this.add.rectangle(width / 2, height / 2, width, height, PALETTE.forestGround).setDepth(-10);
-    // subtle texture stripes for depth without needing art assets
-    for (let i = 0; i < 10; i++) {
-      this.add
-        .rectangle(0, (i * height) / 10, width * 2, 3, PALETTE.forestGroundDark, 0.15)
-        .setOrigin(0, 0)
-        .setDepth(-9);
+    const art = resolveArt(this, "environment", GROUND_ID, proceduralGroundKey());
+    this.add.image(width / 2, height / 2, art.textureKey, art.frame).setDepth(-10).setDisplaySize(width, height);
+  }
+
+  private drawProps() {
+    for (const prop of FOREST_PROPS) {
+      const art = resolveArt(this, "environment", prop.id, proceduralPropKey(prop.id));
+      // Same depth convention as towers/enemies (y-sorted) so a prop near the
+      // path layers correctly against them — was accidentally sorted behind
+      // the ground layer itself (-1000 offset), making every prop invisible.
+      const img = this.add.image(prop.x, prop.y, art.textureKey, art.frame).setDepth(prop.y - 20);
+      // Unlike towers/enemies, real prop art is already baked to its exact
+      // canvas size (trim_and_fit targets the small size in art_prompts.json
+      // directly) — no isRealArt shrink needed, just a size bump so a
+      // 36-48px prop actually reads at this map's scale, plus per-prop variety.
+      img.setScale((prop.scale ?? 1) * 1.6);
     }
   }
 
   private drawPath() {
-    const g = this.add.graphics().setDepth(-5);
+    const g = this.add.graphics().setDepth(-6);
+    // Soft shadow beneath the path for a little depth against the ground.
+    g.lineStyle(48, 0x000000, 0.18);
+    this.strokePath(g, this.level.path, 2, 4);
+    g.setDepth(-5);
     g.lineStyle(46, PALETTE.pathEdge, 1);
     this.strokePath(g, this.level.path);
     g.lineStyle(36, PALETTE.path, 1);
     this.strokePath(g, this.level.path);
+    // Worn center line — a subtle lighter track down the middle, like a trail
+    // that's actually been walked rather than a flat two-tone ribbon.
+    g.lineStyle(10, 0xdcc08c, 0.5);
+    this.strokePath(g, this.level.path);
   }
 
-  private strokePath(g: Phaser.GameObjects.Graphics, path: { x: number; y: number }[]) {
+  private strokePath(g: Phaser.GameObjects.Graphics, path: { x: number; y: number }[], ox = 0, oy = 0) {
     g.beginPath();
-    g.moveTo(path[0].x, path[0].y);
-    for (let i = 1; i < path.length; i++) g.lineTo(path[i].x, path[i].y);
+    g.moveTo(path[0].x + ox, path[0].y + oy);
+    for (let i = 1; i < path.length; i++) g.lineTo(path[i].x + ox, path[i].y + oy);
     g.strokePath();
   }
 
   private drawZones() {
-    const g = this.add.graphics().setDepth(-4);
-    g.fillStyle(0xffffff, 0.05);
-    g.lineStyle(2, 0xffffff, 0.12);
+    this.zoneTiles = [];
     for (const z of this.level.placementZones) {
-      g.fillRoundedRect(z.x, z.y, z.w, z.h, 10);
-      g.strokeRoundedRect(z.x, z.y, z.w, z.h, 10);
+      const tile = this.add.nineslice(
+        z.x + z.w / 2,
+        z.y + z.h / 2,
+        zoneTileTextureKey(),
+        undefined,
+        z.w,
+        z.h,
+        ZONE_TILE_INSET,
+        ZONE_TILE_INSET,
+        ZONE_TILE_INSET,
+        ZONE_TILE_INSET,
+      );
+      tile.setDepth(-4);
+      tile.setAlpha(0.16);
+      tile.setTint(0xdfffd0);
+      this.tweens.add({
+        targets: tile,
+        alpha: { from: 0.12, to: 0.22 },
+        duration: 1700 + Math.random() * 600,
+        yoyo: true,
+        repeat: -1,
+        ease: EASE.inOut,
+      });
+      this.zoneTiles.push(tile);
     }
   }
 
@@ -130,37 +188,33 @@ export class LevelScene extends Phaser.Scene {
 
   private buildHud() {
     const { width } = this.scale;
-    const bar = this.add.rectangle(width / 2, 20, width, 40, 0x0e150e, 0.75).setDepth(90);
-    void bar;
+    makePanel(this, width / 2, 22, width - 12, 40, "dark").setDepth(90).setAlpha(0.92);
 
-    this.livesLabel = this.add
-      .text(16, 12, "", { fontFamily: "sans-serif", fontSize: "16px", color: "#ff8a80" })
-      .setDepth(91);
-    this.currencyLabel = this.add
-      .text(180, 12, "", { fontFamily: "sans-serif", fontSize: "16px", color: "#f2c14e" })
-      .setDepth(91);
+    this.livesBadge = makeCurrencyBadge(this, 40, 22, "❤️", this.lives);
+    this.livesBadge.container.setDepth(91);
+    this.currencyBadge = makeCurrencyBadge(this, 190, 22, "🌰", this.currency);
+    this.currencyBadge.container.setDepth(91);
+
     this.waveLabel = this.add
-      .text(width - 16, 12, "", { fontFamily: "sans-serif", fontSize: "16px", color: "#cfe8cf" })
-      .setOrigin(1, 0)
+      .text(width - 110, 22, "", { fontFamily: "sans-serif", fontSize: "15px", color: "#cfe8cf", fontStyle: "bold" })
+      .setOrigin(1, 0.5)
       .setDepth(91);
 
-    makeButton(this, width - 90, 500, "Menu", 110, () => this.scene.start("MainMenu"), PALETTE.bgPanelLight, 34).setDepth(
-      91,
-    );
+    makeButton(this, width - 40, 500, "☰", 60, () => goToScene(this, "MainMenu"), "green", 44).setDepth(91);
 
     this.updateHud();
   }
 
-  private updateHud() {
-    this.livesLabel.setText(`❤ ${this.lives}`);
-    this.currencyLabel.setText(`🌰 ${this.currency}`);
+  private updateHud(animateCurrency = false) {
+    this.livesBadge.setValue(this.lives, true);
+    this.currencyBadge.setValue(this.currency, animateCurrency);
     this.waveLabel.setText(`Wave ${Math.min(this.waveIndex + 1, this.level.waves.length)} / ${this.level.waves.length}`);
   }
 
   private buildTray() {
     const { width, height } = this.scale;
     this.tray = this.add.container(0, 0).setDepth(90);
-    const bg = this.add.rectangle(width / 2, height - 34, width, 68, 0x0e150e, 0.85);
+    const bg = makePanel(this, width / 2, height - 34, width - 12, 74, "dark");
     this.tray.add(bg);
 
     const spacing = 96;
@@ -171,19 +225,33 @@ export class LevelScene extends Phaser.Scene {
       const x = startX + i * spacing;
       const y = height - 34;
       const card = this.add.container(x, y);
-      const cardBg = this.add.rectangle(0, 0, 80, 56, PALETTE.bgPanel, 1).setStrokeStyle(2, RARITIES[def.rarity].color);
-      cardBg.setInteractive({ useHandCursor: true });
-      const icon = this.add.image(0, -8, towerTextureKey(id)).setScale(0.5);
+
+      const rarityColor = RARITIES[def.rarity].color;
+      const cardBg = this.add.graphics();
+      cardBg.fillStyle(0x000000, 0.22);
+      cardBg.fillRoundedRect(-39, -27, 80, 56, 12);
+      cardBg.fillStyle(PALETTE.bgPanel, 1);
+      cardBg.fillRoundedRect(-40, -29, 80, 56, 12);
+      cardBg.lineStyle(2, rarityColor, 0.85);
+      cardBg.strokeRoundedRect(-40, -29, 80, 56, 12);
+      cardBg.setInteractive(new Phaser.Geom.Rectangle(-40, -29, 80, 56), Phaser.Geom.Rectangle.Contains);
+
+      const art = resolveArt(this, "towers", id, towerTextureKey(id));
+      const icon = this.add.image(0, -8, art.textureKey, art.frame).setScale(art.isRealArt ? 0.42 : 0.5);
       const cost = this.add
-        .text(0, 18, `${def.cost}`, { fontFamily: "sans-serif", fontSize: "12px", color: "#f2c14e" })
+        .text(0, 18, `🌰${def.cost}`, { fontFamily: "sans-serif", fontSize: "11px", color: "#f2c14e", fontStyle: "bold" })
         .setOrigin(0.5);
       card.add([cardBg, icon, cost]);
       card.setData("towerId", id);
-      card.setData("bg", cardBg);
-      cardBg.on("pointerdown", (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
-        event.stopPropagation();
-        this.selectTower(id);
-      });
+      cardBg.on("pointerover", () => this.tweens.add({ targets: card, scale: 1.06, duration: DURATIONS.micro }));
+      cardBg.on("pointerout", () => this.tweens.add({ targets: card, scale: 1, duration: DURATIONS.micro }));
+      cardBg.on(
+        "pointerdown",
+        (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+          event.stopPropagation();
+          this.selectTower(id);
+        },
+      );
       this.tray.add(card);
     });
   }
@@ -199,8 +267,10 @@ export class LevelScene extends Phaser.Scene {
     this.ghost = this.add.container(-100, -100).setDepth(80);
     const ring = this.add.image(0, 0, rangeRingTextureKey()).setAlpha(0.4).setTint(def.accent);
     ring.setScale((def.range * 2) / 128);
-    const icon = this.add.image(0, 0, towerTextureKey(id)).setAlpha(0.75);
+    const art = resolveArt(this, "towers", id, towerTextureKey(id));
+    const icon = this.add.image(0, 0, art.textureKey, art.frame).setAlpha(0.75).setScale(art.isRealArt ? 0.72 : 1);
     this.ghost.add([ring, icon]);
+    this.ghost.setData("accent", def.accent);
   }
 
   private clearSelection() {
@@ -213,7 +283,10 @@ export class LevelScene extends Phaser.Scene {
     if (!this.ghost) return;
     this.ghost.setPosition(x, y);
     const valid = this.canPlaceAt(x, y);
-    this.ghost.iterate((child: Phaser.GameObjects.Image) => child.setTint(valid ? 0xffffff : 0xff4d4d));
+    const ring = this.ghost.list[0] as Phaser.GameObjects.Image;
+    const icon = this.ghost.list[1] as Phaser.GameObjects.Image;
+    ring.setTint(valid ? (this.ghost.getData("accent") ?? 0xffffff) : 0xff4d4d);
+    icon.setTint(valid ? 0xffffff : 0xff4d4d);
   }
 
   private canPlaceAt(x: number, y: number): boolean {
@@ -249,27 +322,123 @@ export class LevelScene extends Phaser.Scene {
 
   private onTowerFire(tower: Tower, target: Enemy) {
     const def = tower.def;
+    tower.shotsFired++;
+
     if (def.role === "support") {
-      // AoE pulse: slow everyone currently in range, no projectile
-      for (const e of this.activeEnemies) {
-        if (Phaser.Math.Distance.Between(tower.x, tower.y, e.x, e.y) <= tower.range) {
-          e.applySlow(tower.slowFactor, 900);
-        }
-      }
-      this.pulseRing(tower.x, tower.y, tower.range, 0x9fd8ff);
+      this.fireSupportPulse(tower);
       return;
     }
     if (def.projectileSpeed <= 0) {
-      // instant melee (blocker / splash bear)
+      // instant melee (blocker / splash)
       this.applyImpact(target, tower.damage, tower.splashRadius, tower.slowFactor, tower.stunChance, tower.x, tower.y);
       this.pulseRing(tower.x, tower.y, tower.range * 0.6, 0xffd27a, 160);
+      this.applyMeleeSpecial(tower, target);
       return;
     }
+    this.fireProjectile(tower, target);
+    this.applyRangedSpecial(tower, target);
+  }
+
+  private fireProjectile(tower: Tower, target: Enemy) {
+    const def = tower.def;
     const proj = this.projectilePool.acquire();
     this.activeProjectiles.push(proj);
-    proj.fire(tower.x, tower.y - 10, target, def.projectileSpeed, tower.damage, tower.splashRadius, tower.slowFactor, tower.stunChance, (t, dmg, splash, slow, stun) =>
-      this.applyImpact(t, dmg, splash, slow, stun, t.x, t.y),
+    proj.fire(
+      tower.x,
+      tower.y - 10,
+      target,
+      def.projectileSpeed,
+      tower.damage,
+      tower.splashRadius,
+      tower.slowFactor,
+      tower.stunChance,
+      (t, dmg, splash, slow, stun) => this.applyImpact(t, dmg, splash, slow, stun, t.x, t.y),
     );
+  }
+
+  private fireSupportPulse(tower: Tower) {
+    const isBurst = tower.shotsFired % 5 === 0;
+    for (const e of this.activeEnemies) {
+      if (!e.active) continue;
+      if (Phaser.Math.Distance.Between(tower.x, tower.y, e.x, e.y) <= tower.range) {
+        e.applySlow(isBurst ? 0.7 : tower.slowFactor, isBurst ? 2500 : 900);
+        if (isBurst) this.damageEnemy(e, 14);
+      }
+    }
+    this.pulseRing(tower.x, tower.y, tower.range, isBurst ? 0x5ab7e0 : 0x9fd8ff, isBurst ? 480 : 350);
+    if (isBurst) {
+      popText(this, tower.x, tower.y - 40, "FLOOD BURST!", "#bfe3ff", 13);
+      this.cameras.main.shake(120, 0.002);
+      tower.pulseScale(0.25, 300);
+    }
+  }
+
+  /** Turtle Guard's "Shell Slam" (every 5th hit: root everyone in range) and
+   * Bear Brawler's "Rampage" (stacks per hit; at 4, a bonus knockback nuke). */
+  private applyMeleeSpecial(tower: Tower, target: Enemy) {
+    if (tower.def.id === "turtle_guard") {
+      if (tower.shotsFired % 5 === 0) {
+        for (const e of this.activeEnemies) {
+          if (e.active && Phaser.Math.Distance.Between(tower.x, tower.y, e.x, e.y) <= tower.range) {
+            e.applySlow(1, 1000);
+          }
+        }
+        this.pulseRing(tower.x, tower.y, tower.range, 0xdfe8c8, 400);
+        popText(this, tower.x, tower.y - 40, "SHELL SLAM!", "#dfe8c8", 13);
+        tower.pulseScale(0.2, 250);
+      }
+      return;
+    }
+    if (tower.def.id === "bear_brawler") {
+      tower.abilityStacks++;
+      tower.flashTint(0xffb0a0, 150);
+      if (tower.abilityStacks >= 4) {
+        tower.abilityStacks = 0;
+        this.damageEnemy(target, tower.damage);
+        target.pushBack(46);
+        target.applyStun(900);
+        this.pulseRing(tower.x, tower.y, tower.splashRadius + 30, 0xff5a3c, 300);
+        popText(this, tower.x, tower.y - 46, "RAMPAGE!", "#ff8a6a", 15);
+        this.cameras.main.shake(150, 0.004);
+        tower.pulseScale(0.35, 280);
+      } else {
+        target.pushBack(14);
+      }
+    }
+  }
+
+  /** Squirrel Scout's "Quick Volley" (every 4th shot: a second acorn) and
+   * Bear & Squirrel Duo's "Double Team" (every 3rd shot: also tag a second
+   * nearby enemy in melee). */
+  private applyRangedSpecial(tower: Tower, target: Enemy) {
+    if (tower.def.id === "squirrel_scout") {
+      if (tower.shotsFired % 4 === 0) {
+        this.time.delayedCall(90, () => {
+          if (target.active) this.fireProjectile(tower, target);
+        });
+        popText(this, tower.x, tower.y - 30, "Quick Volley!", "#ffe08a", 11);
+      }
+      return;
+    }
+    if (tower.def.id === "bear_squirrel_duo") {
+      if (tower.shotsFired % 3 === 0) {
+        let second: Enemy | null = null;
+        let bestD = Infinity;
+        for (const e of this.activeEnemies) {
+          if (e === target || !e.active) continue;
+          const d = tower.distanceTo(e);
+          if (d <= tower.splashRadius + 50 && d < bestD) {
+            bestD = d;
+            second = e;
+          }
+        }
+        if (second) {
+          this.applyImpact(second, Math.round(tower.damage * 0.7), 0, 0, tower.stunChance, second.x, second.y);
+          this.pulseRing(second.x, second.y, 26, 0xf2c14e, 200);
+          popText(this, tower.x, tower.y - 34, "Double Team!", "#f2c14e", 11);
+        }
+      }
+    }
   }
 
   private pulseRing(x: number, y: number, radius: number, color: number, durationMs = 350) {
@@ -316,7 +485,7 @@ export class LevelScene extends Phaser.Scene {
     popText(this, enemy.x, enemy.y - enemy.def.radius - 16, `-${amount}`, "#ffffff", 12);
     if (killed) {
       this.currency += enemy.def.bounty;
-      this.updateHud();
+      this.updateHud(true);
       popText(this, enemy.x, enemy.y - 6, `+${enemy.def.bounty}🌰`, "#f2c14e", 13);
       if (enemy.def.isBoss) {
         this.cameras.main.shake(400, 0.01);
@@ -453,13 +622,13 @@ export class LevelScene extends Phaser.Scene {
     const stars = this.lives >= this.level.startingLives * 0.8 ? 3 : this.lives >= this.level.startingLives * 0.4 ? 2 : 1;
     const crownsEarned = 10 + stars * 5;
     metaStore.recordResult(this.level.id, stars, crownsEarned);
-    this.scene.start("Result", { won: true, stars, crownsEarned });
+    goToScene(this, "Result", { won: true, stars, crownsEarned });
   }
 
   private loseLevel() {
     if (this.levelOver) return;
     this.levelOver = true;
-    this.scene.start("Result", { won: false, stars: 0, crownsEarned: 0 });
+    goToScene(this, "Result", { won: false, stars: 0, crownsEarned: 0 });
   }
 
   // ---------- loop ----------

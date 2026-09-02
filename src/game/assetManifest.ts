@@ -27,7 +27,7 @@
  * See ART_PIPELINE.md for the full guide (frame sizes, origins, export settings).
  */
 
-export type ArtKind = "towers" | "enemies" | "projectiles";
+export type ArtKind = "towers" | "enemies" | "projectiles" | "environment";
 
 export interface ArtPaths {
   staticKey: string;

@@ -1,5 +1,7 @@
 import Phaser from "phaser";
 import { generateAllTextures } from "../textures";
+import { generateUiTextures } from "../ui/uiTextures";
+import { generateEnvTextures } from "../envTextures";
 import { queueConfirmedRealArt, buildAllRealArtAnimations } from "../art";
 import { PALETTE } from "../theme";
 
@@ -41,6 +43,8 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     generateAllTextures(this);
+    generateUiTextures(this);
+    generateEnvTextures(this);
     buildAllRealArtAnimations(this);
     if (this.realArtLoaded > 0) {
       console.info(`[art] ${this.realArtLoaded} real art file(s) loaded from public/art/manifest.json.`);

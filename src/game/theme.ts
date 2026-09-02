@@ -22,3 +22,36 @@ export const PALETTE_CSS = {
 };
 
 export const WORLD = { width: 960, height: 540 };
+
+/**
+ * One shared design language for every screen: same panel/button "material"
+ * (glossy rounded card, soft drop shadow, inner highlight), same timing, same
+ * easing. Nothing should hand-roll a rectangle anymore — see game/ui/panel.ts
+ * and game/ui/button.ts, which are built entirely from these tokens.
+ */
+export const UI = {
+  radius: 16,
+  radiusSmall: 10,
+  shadowOffset: 4,
+  shadowAlpha: 0.35,
+  highlightAlpha: 0.16,
+  borderWidth: 2,
+};
+
+/** Reuse these everywhere instead of picking a new number per tween — that
+ * consistency is most of what makes a UI *feel* like one designed system
+ * instead of a pile of separately-tuned animations. */
+export const DURATIONS = {
+  micro: 120, // hover / tiny state flips
+  press: 90, // button press-down
+  small: 200, // a card flipping selected, a popup appearing
+  medium: 300, // panel entrances, counters
+  transition: 380, // full scene fade
+};
+
+export const EASE = {
+  out: "Sine.easeOut",
+  inOut: "Sine.easeInOut",
+  pop: "Back.Out",
+  press: "Quad.Out",
+};
