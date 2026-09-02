@@ -132,13 +132,16 @@ def remove_background(img: Image.Image, tolerance: float = BG_TOLERANCE) -> Imag
     dist = np.sqrt(((rgb - bg_color) ** 2).sum(axis=-1))
     is_background = dist < tolerance
 
-    alpha = np.where(is_background, 0, 255).astype(np.uint8)
-    # Soften the cutout by one pixel so the edge isn't razor-hard against
-    # whatever the game's own background happens to be.
+    # Feather the cutout over a few pixels (measured at this ~1024px source
+    # resolution, so it ends up subtler still once trim_and_fit's LANCZOS
+    # downsample runs) rather than one hard-edged ring — a smooth 3D-render
+    # style reads as noticeably jaggy with a razor edge, especially once
+    # scaled down to an 84px tile in-game.
     kept = ~is_background
-    eroded_kept = ndimage.binary_erosion(kept)
-    edge_ring = kept & ~eroded_kept
-    alpha[edge_ring] = 190
+    dist_from_edge = ndimage.distance_transform_edt(kept)
+    feather_px = 3.0
+    alpha = np.clip(dist_from_edge / feather_px, 0, 1)
+    alpha = (alpha * 255).astype(np.uint8)
 
     rgba = np.dstack([rgb.astype(np.uint8), alpha])
     return Image.fromarray(rgba, mode="RGBA")
