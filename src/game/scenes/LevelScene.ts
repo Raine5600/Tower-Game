@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { PALETTE, DURATIONS, EASE } from "../theme";
 import { FOREST_LEVEL_1, type LevelDef, type WaveSpawn } from "../../data/levels/forest01";
+import { FOREST_LEVEL_2 } from "../../data/levels/forest02";
 import { ENEMIES, type EnemyKind } from "../../data/enemies";
 import { TOWERS } from "../../data/towers";
 import { RARITIES } from "../../data/rarities";
@@ -19,15 +20,35 @@ import { makeCurrencyBadge, type CurrencyBadge } from "../ui/currencyBadge";
 import { goToScene, fadeInScene } from "../ui/sceneTransition";
 import { zoneTileTextureKey, ZONE_TILE_INSET } from "../ui/uiTextures";
 import { metaStore } from "../../state/metaStore";
+import {
+  playButtonHover,
+  playButtonClick,
+  playTowerPlace,
+  playDenied,
+  playTowerFire,
+  playTowerFireMelee,
+  playEnemyHit,
+  playEnemyDeath,
+  playBossDeath,
+  playCurrencyGain,
+  playAbilityProc,
+  playWaveStart,
+  playLevelWin,
+  playLevelLose,
+  toggleMuted,
+  isMuted,
+} from "../audio";
 
 interface LevelSceneData {
   levelId: string;
   deck: string[];
 }
 
-const LEVELS: Record<string, LevelDef> = {
+export const LEVELS: Record<string, LevelDef> = {
   "forest-1-1": FOREST_LEVEL_1,
+  "forest-1-2": FOREST_LEVEL_2,
 };
+export const LEVEL_ORDER = ["forest-1-1", "forest-1-2"];
 
 // Hand-placed decorative props — kept out of the path corridor and placement
 // zones so they never sit under something interactive. Purely cosmetic.
@@ -66,6 +87,7 @@ export class LevelScene extends Phaser.Scene {
   private waveLabel!: Phaser.GameObjects.Text;
   private tray!: Phaser.GameObjects.Container;
   private zoneTiles: Phaser.GameObjects.NineSlice[] = [];
+  private placementHint: Phaser.GameObjects.Container | null = null;
 
   constructor() {
     super("Level");
@@ -100,6 +122,7 @@ export class LevelScene extends Phaser.Scene {
     this.drawZones();
     this.buildHud();
     this.buildTray();
+    this.showPlacementHintIfNeeded();
 
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => this.updateGhost(p.worldX, p.worldY));
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => this.handlePlacementClick(p));
@@ -201,6 +224,19 @@ export class LevelScene extends Phaser.Scene {
       .setDepth(91);
 
     makeButton(this, width - 40, 500, "☰", 60, () => goToScene(this, "MainMenu"), "green", 44).setDepth(91);
+    const muteBtn = makeButton(
+      this,
+      width - 104,
+      500,
+      isMuted() ? "🔇" : "🔊",
+      60,
+      () => {
+        const nowMuted = toggleMuted();
+        (muteBtn.list[1] as Phaser.GameObjects.Text).setText(nowMuted ? "🔇" : "🔊");
+      },
+      "green",
+      44,
+    ).setDepth(91);
 
     this.updateHud();
   }
@@ -243,16 +279,67 @@ export class LevelScene extends Phaser.Scene {
         .setOrigin(0.5);
       card.add([cardBg, icon, cost]);
       card.setData("towerId", id);
-      cardBg.on("pointerover", () => this.tweens.add({ targets: card, scale: 1.06, duration: DURATIONS.micro }));
+      cardBg.on("pointerover", () => {
+        playButtonHover();
+        this.tweens.add({ targets: card, scale: 1.06, duration: DURATIONS.micro });
+      });
       cardBg.on("pointerout", () => this.tweens.add({ targets: card, scale: 1, duration: DURATIONS.micro }));
       cardBg.on(
         "pointerdown",
         (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
           event.stopPropagation();
+          playButtonClick();
           this.selectTower(id);
         },
       );
       this.tray.add(card);
+    });
+  }
+
+  /** One-time nudge for a genuinely new player — "kids should be able to pick
+   * this up" only holds if the very first thing they see explains itself.
+   * Dismisses on the first successful placement, or after a while on its own. */
+  private showPlacementHintIfNeeded() {
+    if (metaStore.data.hasSeenPlacementHint) return;
+    const { width, height } = this.scale;
+    const hint = this.add.container(width / 2, height - 130).setDepth(95).setAlpha(0);
+    const panel = makePanel(this, 0, 0, 300, 54, "light");
+    const text = this.add
+      .text(0, 0, "Tap a tower below, then tap a glowing tile to place it!", {
+        fontFamily: "sans-serif",
+        fontSize: "13px",
+        fontStyle: "bold",
+        color: "#f5efe0",
+        align: "center",
+        wordWrap: { width: 270 },
+      })
+      .setOrigin(0.5);
+    hint.add([panel, text]);
+    this.placementHint = hint;
+
+    this.tweens.add({ targets: hint, alpha: 1, y: height - 140, duration: DURATIONS.medium, ease: EASE.out });
+    this.tweens.add({
+      targets: hint,
+      y: "+=8",
+      duration: 850,
+      yoyo: true,
+      repeat: -1,
+      ease: EASE.inOut,
+      delay: DURATIONS.medium,
+    });
+    this.time.delayedCall(9000, () => this.dismissPlacementHint());
+  }
+
+  private dismissPlacementHint() {
+    if (!this.placementHint) return;
+    metaStore.markPlacementHintSeen();
+    const hint = this.placementHint;
+    this.placementHint = null;
+    this.tweens.add({
+      targets: hint,
+      alpha: 0,
+      duration: DURATIONS.small,
+      onComplete: () => hint.destroy(),
     });
   }
 
@@ -303,11 +390,13 @@ export class LevelScene extends Phaser.Scene {
     if (y > this.scale.height - 70) return; // tray area
     if (!this.canPlaceAt(x, y)) {
       this.cameras.main.shake(100, 0.002);
+      playDenied();
       return;
     }
     const def = TOWERS[this.selectedTowerId];
     if (this.currency < def.cost) {
       popText(this, x, y - 40, "Not enough acorns!", "#ff8a80", 13);
+      playDenied();
       return;
     }
     this.currency -= def.cost;
@@ -316,6 +405,8 @@ export class LevelScene extends Phaser.Scene {
     tower.onFire = (t, target) => this.onTowerFire(t, target);
     this.towers.push(tower);
     this.clearSelection();
+    this.dismissPlacementHint();
+    playTowerPlace();
   }
 
   // ---------- combat ----------
@@ -332,9 +423,11 @@ export class LevelScene extends Phaser.Scene {
       // instant melee (blocker / splash)
       this.applyImpact(target, tower.damage, tower.splashRadius, tower.slowFactor, tower.stunChance, tower.x, tower.y);
       this.pulseRing(tower.x, tower.y, tower.range * 0.6, 0xffd27a, 160);
+      playTowerFireMelee();
       this.applyMeleeSpecial(tower, target);
       return;
     }
+    playTowerFire();
     this.fireProjectile(tower, target);
     this.applyRangedSpecial(tower, target);
   }
@@ -368,6 +461,7 @@ export class LevelScene extends Phaser.Scene {
     this.pulseRing(tower.x, tower.y, tower.range, isBurst ? 0x5ab7e0 : 0x9fd8ff, isBurst ? 480 : 350);
     if (isBurst) {
       popText(this, tower.x, tower.y - 40, "FLOOD BURST!", "#bfe3ff", 13);
+      playAbilityProc();
       this.cameras.main.shake(120, 0.002);
       tower.pulseScale(0.25, 300);
     }
@@ -385,6 +479,7 @@ export class LevelScene extends Phaser.Scene {
         }
         this.pulseRing(tower.x, tower.y, tower.range, 0xdfe8c8, 400);
         popText(this, tower.x, tower.y - 40, "SHELL SLAM!", "#dfe8c8", 13);
+        playAbilityProc();
         tower.pulseScale(0.2, 250);
       }
       return;
@@ -399,17 +494,35 @@ export class LevelScene extends Phaser.Scene {
         target.applyStun(900);
         this.pulseRing(tower.x, tower.y, tower.splashRadius + 30, 0xff5a3c, 300);
         popText(this, tower.x, tower.y - 46, "RAMPAGE!", "#ff8a6a", 15);
+        playAbilityProc();
         this.cameras.main.shake(150, 0.004);
         tower.pulseScale(0.35, 280);
       } else {
         target.pushBack(14);
       }
+      return;
+    }
+    if (tower.def.id === "dam_guardian") {
+      if (tower.shotsFired % 5 === 0) {
+        for (const e of this.activeEnemies) {
+          if (e.active && Phaser.Math.Distance.Between(tower.x, tower.y, e.x, e.y) <= tower.range + 20) {
+            e.applySlow(1, 1300);
+            e.pushBack(20);
+          }
+        }
+        this.pulseRing(tower.x, tower.y, tower.range + 20, 0x6fc4d9, 450);
+        popText(this, tower.x, tower.y - 40, "OVERFLOW!", "#a8e6f0", 13);
+        playAbilityProc();
+        this.cameras.main.shake(100, 0.0015);
+        tower.pulseScale(0.22, 260);
+      }
     }
   }
 
-  /** Squirrel Scout's "Quick Volley" (every 4th shot: a second acorn) and
+  /** Squirrel Scout's "Quick Volley" (every 4th shot: a second acorn),
    * Bear & Squirrel Duo's "Double Team" (every 3rd shot: also tag a second
-   * nearby enemy in melee). */
+   * nearby enemy in melee), and Torrent Scout's "Flood Shot" (every 4th shot:
+   * a wide slow pulse around the target on top of its normal always-slowing hit). */
   private applyRangedSpecial(tower: Tower, target: Enemy) {
     if (tower.def.id === "squirrel_scout") {
       if (tower.shotsFired % 4 === 0) {
@@ -417,6 +530,7 @@ export class LevelScene extends Phaser.Scene {
           if (target.active) this.fireProjectile(tower, target);
         });
         popText(this, tower.x, tower.y - 30, "Quick Volley!", "#ffe08a", 11);
+        playAbilityProc();
       }
       return;
     }
@@ -436,7 +550,24 @@ export class LevelScene extends Phaser.Scene {
           this.applyImpact(second, Math.round(tower.damage * 0.7), 0, 0, tower.stunChance, second.x, second.y);
           this.pulseRing(second.x, second.y, 26, 0xf2c14e, 200);
           popText(this, tower.x, tower.y - 34, "Double Team!", "#f2c14e", 11);
+          playAbilityProc();
         }
+      }
+      return;
+    }
+    if (tower.def.id === "torrent_scout") {
+      if (tower.shotsFired % 4 === 0) {
+        this.time.delayedCall(140, () => {
+          if (!target.active) return;
+          for (const e of this.activeEnemies) {
+            if (e.active && Phaser.Math.Distance.Between(target.x, target.y, e.x, e.y) <= 60) {
+              e.applySlow(0.55, 1600);
+            }
+          }
+          this.pulseRing(target.x, target.y, 60, 0x6a8fae, 350);
+        });
+        popText(this, tower.x, tower.y - 30, "Flood Shot!", "#a8d0e6", 11);
+        playAbilityProc();
       }
     }
   }
@@ -483,13 +614,18 @@ export class LevelScene extends Phaser.Scene {
     if (!enemy.active || !enemy.alive) return;
     const killed = enemy.takeDamage(amount);
     popText(this, enemy.x, enemy.y - enemy.def.radius - 16, `-${amount}`, "#ffffff", 12);
+    if (!killed) playEnemyHit();
     if (killed) {
       this.currency += enemy.def.bounty;
       this.updateHud(true);
       popText(this, enemy.x, enemy.y - 6, `+${enemy.def.bounty}🌰`, "#f2c14e", 13);
+      this.time.delayedCall(110, playCurrencyGain);
       if (enemy.def.isBoss) {
         this.cameras.main.shake(400, 0.01);
         popText(this, enemy.x, enemy.y - 40, "TIMBER REAPER DOWN!", "#f2c14e", 20);
+        playBossDeath();
+      } else {
+        playEnemyDeath();
       }
       this.poofEnemy(enemy);
       this.removeActiveEnemy(enemy);
@@ -534,6 +670,7 @@ export class LevelScene extends Phaser.Scene {
     if (this.waveIndex >= this.level.waves.length) return;
     this.updateHud();
     popText(this, this.scale.width / 2, 70, `Wave ${this.waveIndex + 1}!`, "#f2c14e", 22);
+    playWaveStart();
     this.waveSpawningDone = false;
     this.spawnWaveGroups(this.level.waves[this.waveIndex].spawns, 0, () => {
       this.waveSpawningDone = true;
@@ -622,12 +759,14 @@ export class LevelScene extends Phaser.Scene {
     const stars = this.lives >= this.level.startingLives * 0.8 ? 3 : this.lives >= this.level.startingLives * 0.4 ? 2 : 1;
     const crownsEarned = 10 + stars * 5;
     metaStore.recordResult(this.level.id, stars, crownsEarned);
+    playLevelWin();
     goToScene(this, "Result", { won: true, stars, crownsEarned });
   }
 
   private loseLevel() {
     if (this.levelOver) return;
     this.levelOver = true;
+    playLevelLose();
     goToScene(this, "Result", { won: false, stars: 0, crownsEarned: 0 });
   }
 
@@ -639,6 +778,7 @@ export class LevelScene extends Phaser.Scene {
 
     for (const enemy of [...this.activeEnemies]) {
       if (!enemy.active) continue;
+      if (enemy.def.isBoss) this.updateBossAbility(enemy, now);
       const reachedEnd = enemy.step(delta);
       if (reachedEnd) this.loseLife(enemy);
     }
@@ -685,5 +825,37 @@ export class LevelScene extends Phaser.Scene {
     const a = e.path[e.segmentIndex];
     const traveled = Phaser.Math.Distance.Between(a.x, a.y, e.x, e.y);
     return e.segmentIndex * 100000 + traveled;
+  }
+
+  /** Timber Reaper's "Chainsaw Overdrive": telegraph → a burst where it moves
+   * much faster and shrugs off half of incoming damage → cooldown. Turns the
+   * boss from a pure HP sponge into something that rewards focus-firing
+   * during the safe window and punishes ignoring the warning. A three-phase
+   * state machine driven entirely by Enemy.nextAbilityAt/abilityPhase, so it
+   * costs nothing extra when there's no boss on the field. */
+  private updateBossAbility(enemy: Enemy, now: number) {
+    if (now < enemy.nextAbilityAt) return;
+
+    if (enemy.abilityPhase === "idle") {
+      enemy.abilityPhase = "telegraph";
+      enemy.nextAbilityAt = now + 800;
+      enemy.setTint(0xffb0a0);
+      this.pulseRing(enemy.x, enemy.y, enemy.def.radius + 14, 0xff8a6a, 750);
+      popText(this, enemy.x, enemy.y - enemy.def.radius - 20, "REVVING UP…", "#ff8a6a", 13);
+    } else if (enemy.abilityPhase === "telegraph") {
+      enemy.abilityPhase = "overdrive";
+      enemy.nextAbilityAt = now + 1600;
+      enemy.speedMultiplier = 2.2;
+      enemy.damageMultiplier = 0.5;
+      enemy.setTint(0xff5a3c);
+      this.cameras.main.shake(220, 0.006);
+      popText(this, enemy.x, enemy.y - enemy.def.radius - 20, "OVERDRIVE!", "#ff5a3c", 16);
+    } else {
+      enemy.abilityPhase = "idle";
+      enemy.nextAbilityAt = now + 4200;
+      enemy.speedMultiplier = 1;
+      enemy.damageMultiplier = 1;
+      enemy.clearTint();
+    }
   }
 }

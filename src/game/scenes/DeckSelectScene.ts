@@ -9,6 +9,7 @@ import { makeButton } from "../ui/button";
 import { makePanel } from "../ui/panel";
 import { panelTextureKey } from "../ui/uiTextures";
 import { goToScene, fadeInScene } from "../ui/sceneTransition";
+import { playButtonHover, playButtonClick, playDenied } from "../audio";
 
 interface DeckSelectData {
   levelId: string;
@@ -123,14 +124,19 @@ export class DeckSelectScene extends Phaser.Scene {
 
     c.add([frame, panel, icon, nameTxt, rarityTxt, descTxt, check]);
 
-    panel.on("pointerover", () => this.tweens.add({ targets: c, scale: 1.03, duration: DURATIONS.micro }));
+    panel.on("pointerover", () => {
+      playButtonHover();
+      this.tweens.add({ targets: c, scale: 1.03, duration: DURATIONS.micro });
+    });
     panel.on("pointerout", () => this.tweens.add({ targets: c, scale: 1, duration: DURATIONS.micro }));
     panel.on("pointerdown", () => {
       const ok = metaStore.toggleDeck(id);
       if (!ok) {
         this.cameras.main.shake(120, 0.003);
+        playDenied();
         return;
       }
+      playButtonClick();
       this.tweens.add({ targets: c, scale: { from: 0.94, to: 1 }, duration: DURATIONS.small, ease: EASE.pop });
       this.refresh();
     });

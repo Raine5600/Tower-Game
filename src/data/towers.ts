@@ -121,6 +121,50 @@ export const TOWERS: Record<string, TowerDef> = {
       "Two squirrels ride the bear's shoulders lobbing acorns while he swings his log — ranged reach with splash power in one tile.",
     flavor: "Merged from Squirrel Scout + Bear Brawler in the Merge Lab.",
   },
+
+  // --- Merged tower (Turtle Guard + Beaver Engineer) ---
+  dam_guardian: {
+    id: "dam_guardian",
+    name: "Dam Guardian",
+    rarity: "rare",
+    role: "blocker",
+    biome: "forest",
+    cost: 130, // cheaper than 60 + 90 = 150
+    range: 90,
+    damage: 10,
+    fireRateMs: 850,
+    projectileSpeed: 0,
+    splashRadius: 40,
+    slowFactor: 0.4,
+    stunChance: 0.1,
+    color: 0x3d6b52,
+    accent: 0xc9a26a,
+    description:
+      "The beaver rides the turtle's shell, channeling water through a lever-pump — every few strikes it floods the path and roots everything in range.",
+    flavor: "Merged from Turtle Guard + Beaver Engineer in the Merge Lab.",
+  },
+
+  // --- Merged tower (Squirrel Scout + Beaver Engineer) ---
+  torrent_scout: {
+    id: "torrent_scout",
+    name: "Torrent Scout",
+    rarity: "uncommon",
+    role: "ranged",
+    biome: "forest",
+    cost: 115, // cheaper than 50 + 90 = 140
+    range: 160,
+    damage: 9,
+    fireRateMs: 520,
+    projectileSpeed: 480,
+    splashRadius: 0,
+    slowFactor: 0.3,
+    stunChance: 0,
+    color: 0x6a8fae,
+    accent: 0xd9b48f,
+    description:
+      "Rides the beaver through the shallows, slinging waterlogged acorns that slow on every hit — the longest reach in the roster.",
+    flavor: "Merged from Squirrel Scout + Beaver Engineer in the Merge Lab.",
+  },
 };
 
 export interface MergeRecipe {
@@ -131,6 +175,8 @@ export interface MergeRecipe {
 
 export const MERGE_RECIPES: MergeRecipe[] = [
   { id: "bear_squirrel", inputs: ["squirrel_scout", "bear_brawler"], result: "bear_squirrel_duo" },
+  { id: "dam_guardian", inputs: ["turtle_guard", "beaver_engineer"], result: "dam_guardian" },
+  { id: "torrent_scout", inputs: ["squirrel_scout", "beaver_engineer"], result: "torrent_scout" },
 ];
 
 export function findRecipe(a: string, b: string): MergeRecipe | undefined {

@@ -3,6 +3,7 @@ import { PALETTE, DURATIONS, EASE } from "../theme";
 import { makeButton } from "../ui/button";
 import { makePanel } from "../ui/panel";
 import { goToScene, fadeInScene } from "../ui/sceneTransition";
+import { playCurrencyGain } from "../audio";
 
 interface ResultData {
   won: boolean;
@@ -51,6 +52,7 @@ export class ResultScene extends Phaser.Scene {
           .setShadow(0, 2, "rgba(0,0,0,0.4)", 0, false, true);
         starsRow.add(star);
         this.tweens.add({ targets: star, scale: 1, delay: 260 + i * 170, duration: 340, ease: EASE.pop });
+        if (filled) this.time.delayedCall(260 + i * 170, playCurrencyGain);
       }
       this.add
         .text(width / 2, height / 2 + 20, `+${this.data2.crownsEarned} 👑 Crowns earned`, {

@@ -41,6 +41,16 @@
       ],
       "prompt": "The same broad-shouldered brown bear standing on hind legs gripping a tree-branch club, but now with two small red squirrels riding on his shoulders, each holding an acorn ready to throw \u2014 a fun team-up pose, rare-rarity fused tower, slightly more detailed/impressive than the base bear."
     },
+    "towers:dam_guardian": {
+      "kind": "towers",
+      "canvas": [84, 84],
+      "prompt": "The same sturdy mossy-shelled forest turtle from before, braced defensively, but now with a beaver perched on top of its shell operating a small wooden lever-and-pump mechanism, water trickling from it \u2014 turtle provides the defensive base, beaver channels the flood. A fun team-up pose, rare-rarity fused tower, slightly more detailed/impressive than either base tower."
+    },
+    "towers:torrent_scout": {
+      "kind": "towers",
+      "canvas": [84, 84],
+      "prompt": "The same small red squirrel scout with its wooden slingshot, but now riding on a beaver's back like a mount as the beaver wades through shallow water, aiming its slingshot loaded with a glistening water-logged acorn \u2014 a fun team-up pose, uncommon-rarity fused tower."
+    },
     "enemies:poacher_scout": {
       "kind": "enemies",
       "canvas": [

@@ -95,11 +95,21 @@ the loader — see the pipeline doc).
 
 - Free-ish placement (zones the map defines, like Bloons — not literally
   anywhere) with a live valid/invalid ghost preview and range ring.
+- **Two levels** — Forest 1-1 "The Hollow Gate" (8 waves) and Forest 1-2
+  "Thornback Hollow" (10 waves, a tighter path with more turns, thinner
+  buildable coverage, and a noticeably steeper difficulty curve) — picked
+  from a level-select screen on the main menu; 1-2 unlocks after 1-1 is
+  cleared once. Proves the per-level data format actually scales to a second
+  hand-designed stage, not just the one it launched with.
 - Waypoint-following enemies, four wave-appropriate archetypes plus a
-  mini-boss (`Timber Reaper`) on the final wave.
-- Four towers covering the four core TD roles (ranged / blocker / support /
-  splash), each data-driven (`src/data/towers.ts`) rather than hardcoded —
-  adding a fifth tower is a data entry, not new code.
+  mini-boss (`Timber Reaper`) that reappears in 1-2 as a mid-level "known
+  threat" beat before its own harder finale. The boss isn't just a bigger
+  health bar: it telegraphs, then bursts into "Overdrive" (much faster,
+  50% damage resistance) on a repeating cycle — reward focus-firing the
+  safe window, punish ignoring the warning (`LevelScene.updateBossAbility`).
+- Six towers covering the four core TD roles (ranged / blocker / support /
+  splash) plus two more from merging, each data-driven (`src/data/towers.ts`)
+  rather than hardcoded — adding another is a data entry, not new code.
 - Every tower also has a **signature ability** beyond its role template, so
   two ranged towers don't just feel like the same tower with different
   numbers (see `LevelScene.applyMeleeSpecial`/`applyRangedSpecial`/
@@ -118,13 +128,28 @@ the loader — see the pipeline doc).
   decorative props in Forest 1-1, replacing the flat-color-plus-stripes
   ground and bare rectangle placement zones from the first pass; zones are
   now soft glowing rounded tiles.
-- The **merge mechanic**: Squirrel Scout + Bear Brawler → Bear & Squirrel
-  Duo, cheaper than the sum of its parts, with its own stats. Discovering an
-  unlisted pair says so rather than pretending nothing exists — the door is
-  open for a real recipe-discovery system later.
+- The **merge mechanic**, now with three known recipes instead of one:
+  Squirrel Scout + Bear Brawler → Bear & Squirrel Duo, Turtle Guard + Beaver
+  Engineer → Dam Guardian, Squirrel Scout + Beaver Engineer → Torrent Scout —
+  each cheaper than the sum of its parts, with its own stats *and* its own
+  signature ability (Dam Guardian's Overflow root-pulse, Torrent Scout's
+  always-slowing hits plus a periodic Flood Shot). Discovering an unlisted
+  pair says so rather than pretending nothing exists — the door is open for
+  a real recipe-discovery system later.
 - Rarity tiers (Common → Legendary) that drive both merge wait-time and the
   Crowns cost to rush a merge, exactly as spec'd: common merges finish in
   minutes, legendary ones take half a day, and you can always pay to skip.
+- **Full audio**: an entirely synthesized (zero binary assets) music + SFX
+  system — `src/game/audio.ts` — built on Web Audio oscillators/noise
+  through Phaser's own audio context. A looping four-chord woodland pad,
+  and a distinct blip for every game event (placing a tower, firing,
+  a hit, a friendly death "poof", currency, wave start, each tower's
+  ability proc, merge complete, win/lose). Mute toggle in the HUD and on
+  the main menu; prefs persist to `localStorage`.
+- A one-time onboarding hint on a player's very first tower placement —
+  "kids should be able to pick this up" only holds if the game explains
+  itself; dismisses on the first successful placement or after a few
+  seconds on its own (`LevelScene.showPlacementHintIfNeeded`).
 - One environmental surprise — a lightning storm that telegraphs, then
   strikes three random enemies — as a proof of the "environmental events"
   pillar; airplane strikes and per-biome events are follow-up content, not
@@ -154,9 +179,10 @@ Before that ships:
 
 ## Known gaps (by design, for a first slice)
 
-- 1 of 5 biomes, 1 of 50 levels, 4 of many towers, no campaign map screen.
-- No accounts/cloud save, no audio, no upgrade-path UI on towers yet
-  (data model has room for it — `TowerDef` is meant to grow multi-path
-  upgrades).
-- Bundle isn't code-split yet (single ~370KB gzipped JS chunk, mostly
+- 1 of 5 biomes, 2 of 50 levels, 6 of many towers, no campaign map screen
+  (the level-select on the main menu is the placeholder for one).
+- No accounts/cloud save, no upgrade-path UI on individual towers yet (data
+  model has room for it — `TowerDef` is meant to grow multi-path upgrades;
+  signature abilities landed first since they're the more distinctive win).
+- Bundle isn't code-split yet (single ~380KB gzipped JS chunk, mostly
   Phaser) — fine for a prototype, worth splitting once more scenes exist.

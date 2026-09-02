@@ -18,6 +18,7 @@ export interface SaveData {
   deck: string[];
   mergeJobs: MergeJob[];
   starsByLevel: Record<string, number>;
+  hasSeenPlacementHint: boolean;
 }
 
 function defaultSave(): SaveData {
@@ -27,6 +28,7 @@ function defaultSave(): SaveData {
     deck: STARTER_TOWER_IDS.slice(0, 4),
     mergeJobs: [],
     starsByLevel: {},
+    hasSeenPlacementHint: false,
   };
 }
 
@@ -151,6 +153,13 @@ class MetaStore {
     this.tickMergeJobs();
     this.save();
     return true;
+  }
+
+  // ---- Onboarding ----
+  markPlacementHintSeen() {
+    if (this.data.hasSeenPlacementHint) return;
+    this.data.hasSeenPlacementHint = true;
+    this.save();
   }
 
   // ---- Progress ----

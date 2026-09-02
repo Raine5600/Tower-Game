@@ -8,6 +8,7 @@ import { resolveArt } from "../art";
 import { makeButton } from "../ui/button";
 import { makePanel } from "../ui/panel";
 import { goToScene, fadeInScene } from "../ui/sceneTransition";
+import { playButtonHover, playButtonClick, playMergeComplete, playCurrencyGain } from "../audio";
 
 export class MergeLabScene extends Phaser.Scene {
   private selected: string[] = [];
@@ -84,9 +85,15 @@ export class MergeLabScene extends Phaser.Scene {
       c.add([bg, icon]);
       c.setData("towerId", id);
       c.setData("draw", drawBg);
-      bg.on("pointerover", () => this.tweens.add({ targets: c, scale: 1.06, duration: DURATIONS.micro }));
+      bg.on("pointerover", () => {
+        playButtonHover();
+        this.tweens.add({ targets: c, scale: 1.06, duration: DURATIONS.micro });
+      });
       bg.on("pointerout", () => this.tweens.add({ targets: c, scale: 1, duration: DURATIONS.micro }));
-      bg.on("pointerdown", () => this.toggleSelect(id));
+      bg.on("pointerdown", () => {
+        playButtonClick();
+        this.toggleSelect(id);
+      });
       this.grid.push(c);
     });
   }
@@ -225,6 +232,7 @@ export class MergeLabScene extends Phaser.Scene {
         130,
         () => {
           if (metaStore.finishMergeNow(job.id)) {
+            playCurrencyGain();
             this.refreshJobs();
             this.refreshGrid();
           }
@@ -242,6 +250,7 @@ export class MergeLabScene extends Phaser.Scene {
     const known = new Set(this.grid.map((c) => c.getData("towerId")));
     const missing = metaStore.data.unlockedTowers.filter((id) => !known.has(id));
     if (missing.length === 0) return;
+    playMergeComplete();
     for (const c of this.grid) c.destroy();
     this.grid = [];
     this.buildGrid();

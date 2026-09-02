@@ -14,6 +14,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   slowFactor = 0;
   stunUntil = 0;
   alive = false;
+  speedMultiplier = 1;
+  damageMultiplier = 1;
+  /** Boss-only telegraphed-ability state machine — see LevelScene.updateBossAbility(). */
+  abilityPhase: "idle" | "telegraph" | "overdrive" = "idle";
+  nextAbilityAt = 0;
   /** Resolved once per spawn — real walk/death animations if art.ts found an atlas, else empty. */
   art: ResolvedArt = { textureKey: "", anims: {}, isRealArt: false };
 
@@ -43,6 +48,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.slowFactor = 0;
     this.stunUntil = 0;
     this.alive = true;
+    this.speedMultiplier = 1;
+    this.damageMultiplier = 1;
+    this.abilityPhase = "idle";
+    // Give the player a moment to see the boss before its first telegraph.
+    this.nextAbilityAt = def.isBoss ? this.scene.time.now + 2500 : 0;
+    this.clearTint();
 
     this.art = resolveArt(this.scene, "enemies", def.id, enemyTextureKey(def.id));
     this.setTexture(this.art.textureKey, this.art.frame);
@@ -63,8 +74,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   get currentSpeed() {
     const now = this.scene.time.now;
     if (now < this.stunUntil) return 0;
-    if (now < this.slowUntil) return this.def.speed * (1 - this.slowFactor);
-    return this.def.speed;
+    const base = now < this.slowUntil ? this.def.speed * (1 - this.slowFactor) : this.def.speed;
+    return base * this.speedMultiplier;
   }
 
   applySlow(factor: number, durationMs: number) {
@@ -146,7 +157,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
   /** Returns true if this hit killed the enemy. */
   takeDamage(amount: number): boolean {
-    this.hp -= amount;
+    this.hp -= amount * this.damageMultiplier;
     this.updateHpBar();
     if (this.hp <= 0) {
       this.despawn();

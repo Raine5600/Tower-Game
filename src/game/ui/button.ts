@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { DURATIONS, EASE } from "../theme";
 import { buttonTextureKey, nineSliceInsets, BUTTON_RADIUS } from "./uiTextures";
+import { playButtonHover, playButtonClick } from "../audio";
 
 export type ButtonVariant = "gold" | "green" | "danger";
 
@@ -60,6 +61,7 @@ export function makeButton(
   let hovering = false;
   bg.on("pointerover", () => {
     hovering = true;
+    playButtonHover();
     scene.tweens.add({ targets: container, scale: 1.035, duration: DURATIONS.micro, ease: EASE.out });
     bg.setTint(0xffffff);
   });
@@ -69,6 +71,7 @@ export function makeButton(
     bg.clearTint();
   });
   bg.on("pointerdown", () => {
+    playButtonClick();
     scene.tweens.add({
       targets: container,
       scale: 0.94,
