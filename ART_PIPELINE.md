@@ -101,6 +101,52 @@ refresh, and check the browser console: `BootScene` logs
 boot, so you can confirm files were actually found before chasing a
 rendering bug that's really just a typo'd path.
 
+## Generating Tier 1 art with Gemini ("Nano Banana")
+
+`scripts/gen_art.py` calls Gemini 2.5 Flash Image to generate a `static.png`
+for any entity and drops it straight into the right `public/art/...` path.
+
+**Setup (one time):**
+```bash
+pip install pillow requests
+# Get a key from https://aistudio.google.com/apikey, then either:
+export GEMINI_API_KEY=...                       # for this shell session, or
+echo 'GEMINI_API_KEY=...' >> .env.local          # persisted, already gitignored
+```
+
+**Usage:**
+```bash
+python3 scripts/gen_art.py --list                          # see valid entity keys
+python3 scripts/gen_art.py towers:squirrel_scout            # generate one
+python3 scripts/gen_art.py towers:squirrel_scout enemies:poacher_scout
+python3 scripts/gen_art.py --all                            # the whole current roster
+```
+
+It prompts the model with a shared style guide (`scripts/art_prompts.json`)
+plus a per-entity description, on a flat green background, then:
+1. Chroma-keys the green out with a soft feather (not a hard cutout — fur/hair
+   edges hold up much better than a naive threshold).
+2. Trims to the actual content and contain-fits it centered onto a
+   transparent canvas matching the size table above.
+3. Saves to `public/art/<kind>/<id>/static.png` and regenerates the manifest.
+
+**Review before trusting it.** Chroma-keying an AI-generated image is not
+perfect — a stray green fringe on light-colored fur, or a background element
+the model didn't fully clear, both happen occasionally. Open each generated
+PNG and check it looks right before considering it final; regenerate (prompt
+variance means a second run often just fixes it) or touch up in any image
+editor if not.
+
+**This only generates Tier 1 (static images), not Tier 2 (animated atlases).**
+Getting a general-purpose image model to output multiple frames of the same
+character in different poses at pixel-consistent scale/framing is a much
+harder, far less reliable problem than one-shot generation — it needs
+image-to-image editing on each prior frame and heavy manual QC per frame. If
+you want real animation, the practical paths are: commission/hand-draw the
+atlas frames (Tier 2 stays fully supported for that), or treat AI generation
+as a *reference* you trace/clean up in Aseprite rather than shipping the raw
+output as animation frames.
+
 ## What still needs code (not just files)
 
 - **New tower/enemy roster entries** — add the data row in `towers.ts` /

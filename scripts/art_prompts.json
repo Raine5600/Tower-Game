@@ -1,0 +1,55 @@
+{
+  "style": "Cartoon-heroic tower-defense game sprite in the style of Kingdom Rush: bold thick dark outlines, warm saturated painterly shading, simple readable silhouette, viewed from a slight 3/4 top-down angle as if placed on a tower-defense map. Single character/object, centered, filling most of the frame with a small margin. Absolutely no background scenery, no ground, no shadow prop, no text, no watermark — only a single FLAT solid pure-magenta (#FF00FF) background, completely even with no gradient or shading on it, so it can be keyed out. Magenta specifically because nothing in this forest-animal-kingdom game is ever magenta. Friendly, family-appropriate tone — heroic and a little funny, never gory or frightening.",
+  "entities": {
+    "towers:squirrel_scout": {
+      "kind": "towers",
+      "canvas": [84, 84],
+      "prompt": "A small, spry red squirrel standing upright on its hind legs, holding a wooden slingshot loaded with an acorn, alert and ready to fire. Big bushy tail curled up behind it. Common-rarity starter tower, keep the design simple."
+    },
+    "towers:turtle_guard": {
+      "kind": "towers",
+      "canvas": [84, 84],
+      "prompt": "A sturdy forest turtle with a thick mossy-green domed shell, front legs braced defensively, calm and determined expression — a defensive blocker unit, not attacking."
+    },
+    "towers:beaver_engineer": {
+      "kind": "towers",
+      "canvas": [84, 84],
+      "prompt": "A beaver wearing a small tool-belt, gripping a wooden mallet, standing next to a miniature log-and-mud dam it just finished building, industrious cheerful expression."
+    },
+    "towers:bear_brawler": {
+      "kind": "towers",
+      "canvas": [84, 84],
+      "prompt": "A broad-shouldered brown bear standing on its hind legs, gripping a thick fallen tree branch like a club in both paws, mid-swing battle stance, fierce but heroic (never scary) expression."
+    },
+    "towers:bear_squirrel_duo": {
+      "kind": "towers",
+      "canvas": [84, 84],
+      "prompt": "The same broad-shouldered brown bear standing on hind legs gripping a tree-branch club, but now with two small red squirrels riding on his shoulders, each holding an acorn ready to throw — a fun team-up pose, rare-rarity fused tower, slightly more detailed/impressive than the base bear."
+    },
+    "enemies:poacher_scout": {
+      "kind": "enemies",
+      "canvas": [56, 56],
+      "prompt": "A sneaky cartoon-villain poacher character, lean build, camo-patterned jacket, holding a small net, crouched in a quick sneaking pose. Readable enemy silhouette, cartoonish and non-graphic — no weapons pointed at anything, no violence."
+    },
+    "enemies:logger_grunt": {
+      "kind": "enemies",
+      "canvas": [56, 56],
+      "prompt": "A stocky cartoon-villain logger character in a red plaid work shirt and a hard hat, carrying a comically oversized (but not gory) chainsaw resting on one shoulder, heavy confident stance."
+    },
+    "enemies:trap_setter": {
+      "kind": "enemies",
+      "canvas": [56, 56],
+      "prompt": "A wiry cartoon-villain character in a green jacket and gloves, crouched low, holding an empty animal snare/trap in both hands, nimble sneaky posture."
+    },
+    "enemies:timber_reaper": {
+      "kind": "enemies",
+      "canvas": [140, 140],
+      "prompt": "A large intimidating mini-boss: a rusty orange-and-black mechanical feller-buncher forestry vehicle with a big circular saw-blade arm raised, thick smokestack, cartoon boss-fight machine design (think a friendly-game-boss version of a logging machine, stylized and chunky, not photorealistic or gory)."
+    },
+    "projectiles:acorn": {
+      "kind": "projectiles",
+      "canvas": [16, 16],
+      "prompt": "A single glossy brown acorn with its cap, simple bold icon-style game projectile, extremely minimal detail since it renders very small."
+    }
+  }
+}
