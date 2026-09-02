@@ -1,8 +1,11 @@
 import Phaser from "phaser";
 import { generateAllTextures } from "../textures";
+import { queueConfirmedRealArt, buildAllRealArtAnimations } from "../art";
 import { PALETTE } from "../theme";
 
 export class BootScene extends Phaser.Scene {
+  private realArtLoaded = 0;
+
   constructor() {
     super("Boot");
   }
@@ -27,10 +30,21 @@ export class BootScene extends Phaser.Scene {
     void bg;
     void label;
     void sub;
+
+    // realArtRegistry (loaded in main.ts before this scene ever exists) already
+    // confirmed which files are real — nothing queued here can 404. Missing art
+    // just means "no real art yet for this entity", handled by art.ts's fallback
+    // to the procedural placeholder. See ART_PIPELINE.md to add real files.
+    this.load.on("filecomplete", () => (this.realArtLoaded += 1));
+    queueConfirmedRealArt(this);
   }
 
   create() {
     generateAllTextures(this);
+    buildAllRealArtAnimations(this);
+    if (this.realArtLoaded > 0) {
+      console.info(`[art] ${this.realArtLoaded} real art file(s) loaded from public/art/manifest.json.`);
+    }
     this.time.delayedCall(250, () => this.scene.start("MainMenu"));
   }
 }

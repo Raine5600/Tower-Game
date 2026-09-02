@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import type { EnemyDef } from "../../data/enemies";
 import type { Vec2 } from "../../data/levels/forest01";
 import { enemyTextureKey } from "../textures";
+import { resolveArt, type ResolvedArt } from "../art";
 
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   def!: EnemyDef;
@@ -13,6 +14,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   slowFactor = 0;
   stunUntil = 0;
   alive = false;
+  /** Resolved once per spawn — real walk/death animations if art.ts found an atlas, else empty. */
+  art: ResolvedArt = { textureKey: "", anims: {}, isRealArt: false };
 
   private hpBarBg!: Phaser.GameObjects.Rectangle;
   private hpBarFill!: Phaser.GameObjects.Rectangle;
@@ -40,8 +43,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.stunUntil = 0;
     this.alive = true;
 
-    const key = enemyTextureKey(def.id);
-    this.setTexture(key);
+    this.art = resolveArt(this.scene, "enemies", def.id, enemyTextureKey(def.id));
+    this.setTexture(this.art.textureKey, this.art.frame);
     this.setPosition(path[0].x, path[0].y);
     this.setActive(true).setVisible(true);
     this.setDepth(10);
@@ -49,6 +52,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     body.setCircle(def.radius, this.width / 2 - def.radius, this.height / 2 - def.radius);
     this.setScale(1);
     this.alpha = 1;
+    if (this.art.anims.walk) this.play(this.art.anims.walk);
 
     this.hpBarBg.setVisible(true);
     this.hpBarFill.setVisible(true);

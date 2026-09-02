@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import type { Enemy } from "./Enemy";
 import { projectileTextureKey } from "../textures";
+import { resolveArt } from "../art";
 
 export type ProjectileHitCallback = (target: Enemy, damage: number, splashRadius: number, slowFactor: number, stunChance: number) => void;
 
@@ -15,7 +16,8 @@ export class Projectile extends Phaser.GameObjects.Image {
   active2 = false;
 
   constructor(scene: Phaser.Scene) {
-    super(scene, -100, -100, projectileTextureKey());
+    const art = resolveArt(scene, "projectiles", "acorn", projectileTextureKey());
+    super(scene, -100, -100, art.textureKey, art.frame);
     scene.add.existing(this);
     this.setDepth(20);
     this.setActive(false).setVisible(false);

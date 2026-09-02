@@ -327,10 +327,19 @@ export class LevelScene extends Phaser.Scene {
     }
   }
 
-  /** Friendly "poof" — no gore, just a bright puff that scales up and fades. Runs on a
-   * throwaway image so the pooled Enemy sprite can be recycled immediately. */
+  /** Friendly death — no gore. Runs on a throwaway sprite so the pooled Enemy can be
+   * recycled immediately. A real death animation plays once and fades out; without
+   * one, falls back to a bright puff that scales up and fades. */
   private poofEnemy(enemy: Enemy) {
-    const poof = this.add.image(enemy.x, enemy.y, enemy.texture.key).setDepth(11).setTint(0xffffff);
+    if (enemy.art.anims.death) {
+      const ghost = this.add.sprite(enemy.x, enemy.y, enemy.art.textureKey, enemy.art.frame).setDepth(11);
+      ghost.play(enemy.art.anims.death);
+      ghost.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+        this.tweens.add({ targets: ghost, alpha: 0, duration: 150, onComplete: () => ghost.destroy() });
+      });
+      return;
+    }
+    const poof = this.add.image(enemy.x, enemy.y, enemy.art.textureKey, enemy.art.frame).setDepth(11).setTint(0xffffff);
     this.tweens.add({
       targets: poof,
       scale: { from: 1, to: 1.6 },

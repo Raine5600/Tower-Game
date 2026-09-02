@@ -35,18 +35,25 @@ npm run preview   # serve the production build locally
 ## Project layout
 
 ```
+scripts/
+  generate-art-manifest.mjs   scans public/art/, writes public/art/manifest.json (runs pre-dev/pre-build)
+public/
+  art/<kind>/<id>/            real art drop-in point — see ART_PIPELINE.md
 src/
   data/            Pure data: towers, enemies, rarities, merge recipes, level/wave defs
   state/
     metaStore.ts   Persistent meta-progression (crowns, unlocked roster, deck, merge jobs)
   game/
-    theme.ts        Shared palette + world size
-    textures.ts      Procedural placeholder art (see below) baked to Phaser textures at boot
+    theme.ts             Shared palette + world size
+    textures.ts           Procedural placeholder art baked to Phaser textures at boot
+    assetManifest.ts       Real-art path conventions (kind/id → expected file paths)
+    realArtRegistry.ts     Fetches public/art/manifest.json once at boot, before Phaser.Game exists
+    art.ts                 Resolves real atlas anim > real static image > procedural, per entity
     entities/        Tower, Enemy, Projectile — the live game objects
     systems/         ObjectPool (perf: reuse projectiles instead of GC churn)
     ui/              Reusable button + floating-text helpers
     scenes/
-      BootScene         generates textures, then hands off
+      BootScene         queues confirmed real art, generates placeholders, then hands off
       MainMenuScene      title + crowns balance
       DeckSelectScene    pick up to 8 unlocked towers before a run
       LevelScene         the actual tower-defense gameplay
@@ -54,15 +61,23 @@ src/
       ResultScene        win/lose, stars, crowns earned
 ```
 
-## Placeholder art
+## Placeholder art, and how to replace it
 
 There is no illustrated art yet. Every tower and enemy is a Graphics shape
 baked to a texture at boot (`src/game/textures.ts`) — silhouettes are
 role-coded (triangle = ranged, hexagon = blocker, ripple = support, burst =
-splash/hybrid) so the game stays readable without real sprites. Swapping in
-painted/animated art later means replacing texture generation with an
-`Assets`/atlas load — nothing downstream (entities, scenes) needs to change,
-since everything references textures by the same string keys.
+splash/hybrid) so the game stays readable without real sprites.
+
+The real-art pipeline is already built and wired in, waiting for files: drop
+a PNG (or an animated TexturePacker atlas) at a conventional path under
+`public/art/` and it replaces the placeholder automatically, no code changes
+— **see [`ART_PIPELINE.md`](./ART_PIPELINE.md) for the exact paths, sizes,
+and animation-frame naming convention.** `src/game/art.ts` +
+`realArtRegistry.ts` do the resolving (real atlas animation > real static
+image > procedural placeholder); `scripts/generate-art-manifest.mjs` is what
+lets the game know what's real without speculatively requesting files that
+might not exist (important on static hosts that SPA-fallback missing paths
+to `index.html`, which used to crash the loader — see the pipeline doc).
 
 ## What's actually implemented
 
